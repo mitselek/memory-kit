@@ -35,6 +35,15 @@ Resolved questions:
   every convention is adopted by the household FIRST, then the seed, then the team. Proven-first
   starts at home.
 
+## Tooling (ruled 2026-09-21)
+
+Parsing and schema generation: **python3 + PyYAML**. Line-shaped checks (row and char caps):
+**awk**. Nothing else -- no `yq` (not present by default, and two different programs share the
+name), no node (nvm installs sit outside the systemd/cron PATH, and the lint must run from cron).
+
+The lint fails closed with a one-line install hint when PyYAML is missing; it never silently
+skips a check.
+
 ## Ref grammar
 
 `sha | path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | blank`
