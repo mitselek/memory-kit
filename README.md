@@ -71,16 +71,20 @@ name), no node (nvm installs sit outside the systemd/cron PATH, and the lint mus
 The lint fails closed with a one-line install hint when PyYAML is missing; it never silently
 skips a check.
 
-## Generated, not hand-written
+## One canon: the types
 
-`caps.yaml` is the single source for every numeric cap and for the ref grammar. `schemas/` is
-generated from it; so are the type declarations when they land. `tools/gen-schemas.py --check`
-exits non-zero when a generated file is stale, and that check belongs in the commit gate.
+`types/*.ts` are the source of truth -- hand-written, carrying shape, constants and the
+rationale in their comments. That is the notation framework-research and ai-locum already use;
+the kit does not invent a second one. Reading an interface needs no node.
 
-The lint depends on **PyYAML only** -- not on a JSON Schema validator. It reads `caps.yaml` and
-checks directly, so a home needs nothing beyond python3 to lint. The published schemas are the
-machine-readable statement of the same truth for anyone who wants them; the fixtures remain the
-contract.
+`caps.yaml` is **generated** from `types/caps.ts` and committed, so the lint can read the
+numbers with python3 alone -- no node, no TypeScript toolchain, in any home.
+`tools/extract-caps.py --check` exits non-zero when it is stale, and that check belongs in the
+commit gate.
+
+There is no JSON Schema in this repo. It would be a third expression of one truth, and drift
+between expressions is precisely what the kit exists to prevent. The **fixtures are the
+contract**; the types state it; `caps.yaml` is the machine-readable extract.
 
 ## Ref grammar
 
@@ -141,9 +145,9 @@ homes it has not seen.
 ADOPTION.md        prompt: bring an existing home onto the kit, once
 UPGRADE.md         prompt: after every pull
 SPEC.md            the convention, readable
-caps.yaml          every numeric cap and the ref grammar -- the one source
-schemas/           GENERATED from caps.yaml by tools/gen-schemas.py; never hand-edited
-tools/             gen-schemas.py (--check fails when a schema is stale)
+types/             TypeScript interfaces -- the canon: shape, constants and rationale
+caps.yaml          GENERATED from types/caps.ts; the flat extract the lint reads
+tools/             extract-caps.py (--check fails when caps.yaml is stale)
 core/              content that ships WITH the kit: kit facts, 8 rules, lessons, urls
 schemas/           one JSON Schema per tier
 caps.yaml          every numeric cap, in one place
