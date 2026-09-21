@@ -90,12 +90,37 @@ origin doubles as the test.
   interleave, and the home's config for the kit lives outside the subtree, where a pull cannot
   clobber it. If an upgrade needs to reach into the home's data, the kit has leaked.
 
+## `core/` -- content that ships with the kit
+
+The kit carries a small body of content every home may adopt as-is: memory-hygiene **rules**
+and convention **lessons**. Facts are almost never universal -- a fact is a claim about a
+particular present -- so `core/facts/` holds only facts about the kit's own tooling, and ships
+empty rather than padded.
+
+Core content costs a home its spawn budget forever, so it is capped harder than the home's own:
+
+| | cap | why |
+|---|---|---|
+| `core/rules.yaml` | 8 rows | every row is read on every spawn in every home that adopts it |
+| `core/lessons/` | uncapped | read at the moment of use, not on spawn |
+| `core/facts/` | 10 | facts about the kit's tooling only |
+
+**Admission test for a core rule:** would a home that lacks it make a specific, repeated,
+recorded mistake? Each core rule cites the incident that created it. No incident, no core --
+it is a lesson. Additions are subtractive by default: a proposal must argue why it is not a
+lesson, and what it displaces if core is full.
+
+**Opt-out is legitimate.** A home may disable a core rule by naming it with a reason in its
+own config; the lint reports the divergence, never forbids it. The kit does not legislate
+homes it has not seen.
+
 ## Layout (target for v0.1)
 
 ```
 ADOPTION.md        prompt: bring an existing home onto the kit, once
 UPGRADE.md         prompt: after every pull
 SPEC.md            the convention, readable
+core/              content that ships WITH the kit: universal rules + lessons (see below)
 schemas/           one JSON Schema per tier
 caps.yaml          every numeric cap, in one place
 fixtures/          valid/ and invalid/ samples per tier -- the contract
