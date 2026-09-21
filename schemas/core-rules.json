@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codeberg.org/mitselek/memory-kit/schemas/core-rules.json",
+  "$comment": "GENERATED from caps.yaml by tools/gen-schemas.py. Do not hand-edit.",
+  "title": "Core rules (ship with the kit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rules"
+  ],
+  "properties": {
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "ref",
+          "core",
+          "incident"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Imperative. Read on every spawn, so keep it short."
+          },
+          "ref": {
+            "type": "string",
+            "pattern": "^$|^[0-9a-f]{7,40}$|^[A-Za-z0-9._\\/-]+$|^#[0-9]+$|^urls\\/[a-z0-9-]+$|^po:S[0-9]+$|^[a-z][a-z0-9_-]*:[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "description": "A ruling or the incident that created it."
+          },
+          "core": {
+            "enum": [
+              "mandatory",
+              "optional"
+            ],
+            "description": "mandatory = the kit's own operation; optional = hygiene, a home may disable it with a recorded reason."
+          },
+          "incident": {
+            "type": "string",
+            "description": "The specific, repeated, recorded mistake a home would make without this rule. No incident, no core."
+          }
+        }
+      },
+      "maxItems": 8
+    }
+  }
+}

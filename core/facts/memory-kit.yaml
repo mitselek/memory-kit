@@ -4,8 +4,8 @@
 # where its own kit comes from.
 
 facts:
-  - fact: "memory-kit lives at codeberg.org/mitselek/memory-kit; github.com/mitselek/memory-kit is a mirror."
-    ref: "https://codeberg.org/mitselek/memory-kit"
+  - fact: "The kit lives at the repo in urls/memory-kit-repo; urls/memory-kit-mirror is a read-only mirror."
+    ref: urls/memory-kit-repo
     refute: "Fetch both remotes and compare the tip of main."
     verified: "2026-09-21"
 
@@ -25,7 +25,7 @@ facts:
     verified: "2026-09-21"
 
   - fact: "Feedback goes to the kit's issue tracker as an experience report: what fit, what did not, what the caps got wrong."
-    ref: "https://codeberg.org/mitselek/memory-kit/issues"
+    ref: urls/memory-kit-issues
     refute: "=ref"
     verified: "2026-09-21"
 

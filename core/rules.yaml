@@ -22,7 +22,7 @@ rules:
 
   # -- optional: memory hygiene
   - rule: "Never write a number you had to carry by hand. Write the command that derives it."
-    ref: "https://github.com/mitselek/ai-teams/discussions/122"
+    ref: urls/memory-kit-charter-discussion
     core: optional
     incident: "Every hand-carried count audited in framework-research was wrong: 264 vs 540 cards, 39 of 49 records mis-measured."
 

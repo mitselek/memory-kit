@@ -71,6 +71,17 @@ name), no node (nvm installs sit outside the systemd/cron PATH, and the lint mus
 The lint fails closed with a one-line install hint when PyYAML is missing; it never silently
 skips a check.
 
+## Generated, not hand-written
+
+`caps.yaml` is the single source for every numeric cap and for the ref grammar. `schemas/` is
+generated from it; so are the type declarations when they land. `tools/gen-schemas.py --check`
+exits non-zero when a generated file is stale, and that check belongs in the commit gate.
+
+The lint depends on **PyYAML only** -- not on a JSON Schema validator. It reads `caps.yaml` and
+checks directly, so a home needs nothing beyond python3 to lint. The published schemas are the
+machine-readable statement of the same truth for anyone who wants them; the fixtures remain the
+contract.
+
 ## Ref grammar
 
 `sha | path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | blank`
@@ -130,7 +141,10 @@ homes it has not seen.
 ADOPTION.md        prompt: bring an existing home onto the kit, once
 UPGRADE.md         prompt: after every pull
 SPEC.md            the convention, readable
-core/              content that ships WITH the kit: universal rules + lessons (see below)
+caps.yaml          every numeric cap and the ref grammar -- the one source
+schemas/           GENERATED from caps.yaml by tools/gen-schemas.py; never hand-edited
+tools/             gen-schemas.py (--check fails when a schema is stale)
+core/              content that ships WITH the kit: kit facts, 8 rules, lessons, urls
 schemas/           one JSON Schema per tier
 caps.yaml          every numeric cap, in one place
 fixtures/          valid/ and invalid/ samples per tier -- the contract

@@ -1,0 +1,40 @@
+# Every numeric cap in the kit, in one place. Schemas and types are GENERATED from this file
+# (tools/gen-schemas.py); never hand-edit a generated artifact.
+#
+# Rationale for two caps per tier (rows AND chars): a row cap alone displaces growth into
+# longer rows. Measured in 10 of 10 scratchpads in framework-research Phase 0, and observed
+# as page-spanning rows in the Passepartout household, 2026-09-06.
+
+version: 0.1.0-dev
+
+scratchpad:
+  current_rows: 15          # acted on next session; regenerated at close, never appended
+  total_rows: 100           # current + staging
+  record_chars: 100         # the record field only
+
+facts:
+  per_file: 30              # overflow mints a new subject file, never blocks a write
+  fact_words: 42            # norm is 30
+
+dormant:
+  per_file: 30              # same shape as facts
+
+rules:
+  rows: 20                  # a home's own rules; read on every spawn
+  rule_chars: 100
+
+core:
+  rules: 8                  # ships with the kit; costs every adopting home a spawn row
+  facts: 10                 # facts about the kit itself only
+
+lessons:
+  index_line_chars: 120     # the index is GENERATED, never hand-carried
+
+urls:
+  one_url_per_file: true    # the URL is line 1; the filename is the short name
+
+ref_grammar:
+  # sha | repo path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | blank
+  # Blank is COUNTED, never failed: failing blanks buys fabricated refs.
+  pattern: '^$|^[0-9a-f]{7,40}$|^[A-Za-z0-9._\/-]+$|^#[0-9]+$|^urls\/[a-z0-9-]+$|^po:S[0-9]+$|^[a-z][a-z0-9_-]*:[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+  refute_same_as_ref: '=ref'
