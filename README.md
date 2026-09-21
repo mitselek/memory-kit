@@ -78,9 +78,23 @@ skips a check.
 Blank is counted, never failed -- failing it buys fabricated refs. `refute: "=ref"` means the
 origin doubles as the test.
 
+## How a home uses this
+
+- **Adopting**: clone or subtree the kit, then have the assistant execute `ADOPTION.md`. It is a
+  prompt, not a guide -- the assistant does the work and stops at three gates that are the
+  human's to rule: the tier mapping, the rules cut list, and any deletion. Adoption runs once.
+- **Upgrading**: pull, then have the assistant execute `UPGRADE.md`. **A minor upgrade is a pull
+  and nothing else** -- no minor may change the shape of data already on disk. Anything that
+  would is a major, and ships `migrations/<version>/`.
+- **Boundary**: the kit owns `memory-kit/`; the home owns its memory directory. They never
+  interleave, and the home's config for the kit lives outside the subtree, where a pull cannot
+  clobber it. If an upgrade needs to reach into the home's data, the kit has leaked.
+
 ## Layout (target for v0.1)
 
 ```
+ADOPTION.md        prompt: bring an existing home onto the kit, once
+UPGRADE.md         prompt: after every pull
 SPEC.md            the convention, readable
 schemas/           one JSON Schema per tier
 caps.yaml          every numeric cap, in one place
