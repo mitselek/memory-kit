@@ -93,6 +93,36 @@ contract**; the types state it; `caps.yaml` is the machine-readable extract.
 Blank is counted, never failed -- failing it buys fabricated refs. `refute: "=ref"` means the
 origin doubles as the test.
 
+## What the kit costs a home, in context
+
+Memory conventions are paid for in context, every session, forever. The kit measures its own
+weight rather than assuming it is small. Figures are characters from this repo at the current
+commit, tokens approximated at 4 chars each -- regenerate with `tools/weigh.py`.
+
+| read | what | ~tokens |
+|------|------|--------|
+| **every session** | shipped rules (8 rows) | **680** |
+| when the subject comes up | shipped facts about the kit (7) | 450 |
+| when a ref points there | url files (5) | 100 |
+| when a shape is in question | types, the canon (12 files) | 2 370 |
+| at the moment of use | lesson index + bodies (4) | 1 520 |
+| once, at adoption | ADOPTION, UPGRADE, README, GOVERNANCE | 4 930 |
+
+**The per-session figure is the only one that compounds.** Everything else is read when a
+question actually arises, which is the entire reason the tiers are split by read-time rather
+than by importance.
+
+### A finding from measuring this
+
+680 tokens for eight rules is more than eight rules should cost. The weight is in the
+`incident` field: every shipped rule carries the recorded mistake that justifies it, and that
+justification is for the kit's maintainers, not for the assistant reading rules on spawn. The
+admission test needs the incident; the home does not.
+
+Left standing for now, deliberately -- the kit does not fix things it has not lived with. The
+candidate fix is to strip `incident` from what ships while keeping it in the source, which
+would take the per-session cost to roughly 300 tokens. Filed as a finding, not yet a change.
+
 ## How a home uses this
 
 - **Adopting**: clone or subtree the kit, then have the assistant execute `ADOPTION.md`. It is a

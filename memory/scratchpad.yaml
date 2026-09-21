@@ -2,6 +2,9 @@
 # A claim about sources, never a source. Open the ref before citing.
 
 current:
+  - label: WARNING
+    record: "Shipped rules cost ~680 tok/session; the incident field is most of it. Strip on ship?"
+    ref: README.md
   - label: WIP
     record: "lint/memory-lint.sh unwritten -- the tier that makes every other tier enforceable."
     ref: types/caps.ts
@@ -31,7 +34,7 @@ current:
     ref: 4a589aa
   - label: DECISION
     record: "Obligations ship as a tier in v0.1: current is regenerated, so it cannot hold them."
-    ref: "#1"
+    ref: #1
 
 staging:
   - label: PATTERN
