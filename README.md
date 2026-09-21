@@ -35,6 +35,26 @@ Resolved questions:
   every convention is adopted by the household FIRST, then the seed, then the team. Proven-first
   starts at home.
 
+## Model- and harness-agnostic (ruled 2026-09-21)
+
+The kit is memory conventions, not an agent framework. It must hold for any model on any
+harness: plain files, plain formats, no vendor mechanism anywhere in the core.
+
+Binding consequences:
+
+- **No harness mechanism in the kit.** Tool-call hooks, skill manifests, agent-spawn shapes and
+  session lifecycles belong to a harness, not here. A lesson may *declare* a trigger; firing it
+  is an adapter's job, supplied by the consumer.
+- **No vendor paths in normative text.** "The harness's own memory directory", never a literal
+  `~/.<vendor>/...`. Examples are marked as examples.
+- **Adapters, where a harness must be named.** One file per harness, outside the core
+  (`adapters/<harness>.md`), carrying that harness's hard facts. Pattern proven in ai-locum.
+- **Tooling stays language-level**, not model-level: python3 + PyYAML, awk, git. Nothing that
+  assumes a particular assistant is reading.
+
+Test for anything proposed: *would this still make sense for a different model, on a different
+harness, in a different language?* If not, it is an adapter or a consumer's business.
+
 ## Tooling (ruled 2026-09-21)
 
 Parsing and schema generation: **python3 + PyYAML**. Line-shaped checks (row and char caps):
