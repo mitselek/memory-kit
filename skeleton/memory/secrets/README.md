@@ -1,6 +1,6 @@
 # secrets
 
-One encrypted file per secret: `<name>.<ext>`. The kit mandates the discipline, not the tool.
+One encrypted file per secret. The kit mandates the discipline, not the tool.
 
 - **Public key (encrypt-only, safe to commit):** _fill in_
 - **Master key location (a PATH, never the key):** _fill in_
