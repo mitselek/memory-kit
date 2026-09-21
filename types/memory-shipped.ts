@@ -1,12 +1,12 @@
-// Core content: what ships WITH the kit and is installed into every adopting home, so the
+// Shipped content: what the kit carries in its own memory/ tree and is installed into every adopting home, so the
 // home's assistant knows what its own convention is, where it came from, how to upgrade it
 // and how to talk back -- without needing anything external.
 //
-// core/facts/  holds facts about the KIT only. A fact is a claim about a particular present,
+// memory/facts/  holds facts about the KIT only. A fact is a claim about a particular present,
 //              so a fact about a home is never universal.
-// core/rules.yaml is capped hard: every row is read on every spawn in every adopting home.
-// core/lessons/ is uncapped -- read at the moment of use, not on spawn.
-// core/urls/   one URL per file; core content cites the short name, never an inline URL.
+// memory/rules.yaml is capped hard: every row is read on every spawn in every adopting home.
+// memory/lessons/ is uncapped -- read at the moment of use, not on spawn.
+// memory/urls/   one URL per file; core content cites the short name, never an inline URL.
 
 import type { Fact } from './memory-facts';
 import type { Rule } from './memory-rules';

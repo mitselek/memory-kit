@@ -105,9 +105,13 @@ origin doubles as the test.
   interleave, and the home's config for the kit lives outside the subtree, where a pull cannot
   clobber it. If an upgrade needs to reach into the home's data, the kit has leaked.
 
-## `core/` -- content that ships with the kit
+## `memory/` -- the kit's own memory tree, shipped to every home
 
-The kit carries content that is installed into every adopting home, so that the home's own
+The kit keeps its own memory in exactly the tiers it defines, at `memory-kit/memory/`. The
+lint runs over it unmodified, so the kit is a conforming home by construction rather than by
+discipline -- and an adopting home merges like into like.
+
+The content is installed into every adopting home, so that the home's own
 assistant knows what its memory convention is, where it came from, how to upgrade it and how to
 talk back -- without needing anything external.
 
@@ -120,15 +124,15 @@ Two kinds, marked per row:
   in its config; the lint reports the divergence, never forbids it.
 
 Facts about a home are never universal -- a fact is a claim about a particular present -- so
-`core/facts/` holds facts about the kit itself and nothing else.
+`memory/facts/` holds facts about the kit itself and nothing else.
 
 Core content costs a home its spawn budget forever, so it is capped harder than the home's own:
 
 | | cap | why |
 |---|---|---|
-| `core/rules.yaml` | 8 rows | every row is read on every spawn in every home that adopts it |
-| `core/lessons/` | uncapped | read at the moment of use, not on spawn |
-| `core/facts/` | 10 | facts about the kit itself only: repo, version, upgrade, feedback, lint |
+| `memory/rules.yaml` | 8 rows | every row is read on every spawn in every home that adopts it |
+| `memory/lessons/` | uncapped | read at the moment of use, not on spawn |
+| `memory/facts/` | 10 | facts about the kit itself only: repo, version, upgrade, feedback, lint |
 
 **Admission test for a core rule:** would a home that lacks it make a specific, repeated,
 recorded mistake? Each core rule cites the incident that created it. No incident, no core --

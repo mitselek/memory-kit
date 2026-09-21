@@ -30,7 +30,7 @@ An issue on the kit's tracker, titled as an experience report. State your scale 
 how long the home has run) so the finding can be weighed. If a fix is obvious to you, say it --
 but the report is worth filing without one.
 
-## The bar for a rule reaching `core/`
+## The bar for a rule reaching `memory/`
 
 If your finding becomes a proposed core rule, it must name the specific, repeated, recorded
 mistake a home would make without it. Core costs every adopting home a spawn row forever. No
