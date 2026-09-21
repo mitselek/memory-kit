@@ -1,0 +1,29 @@
+# types
+
+The canon. Shape, constants and the rationale that goes with them, in the notation
+framework-research and ai-locum already use.
+
+Hand-written, and the only place a cap or a field may be changed. `caps.yaml` is generated
+from `caps.ts`; regenerate with `tools/extract-caps.py`, which `--check` catches when stale.
+
+Reading an interface needs no node -- only the extract does, and that is committed.
+
+There is no JSON Schema here. A second expression of one truth is the drift this repo exists
+to prevent: the types state the convention, the fixtures are the contract.
+
+| file | tier |
+|------|------|
+| `caps.ts` | every numeric cap, the ref grammar, the two-cap rationale |
+| `memory-common.ts` | shapes shared by every tier: `IsoDate`, `Ref` |
+| `memory-scratchpad.ts` | what to act on next; `current` + `staging` |
+| `memory-facts.ts` | claims about the present, with a refutation address |
+| `memory-dormant.ts` | facts parked, not deleted |
+| `memory-rules.ts` | standing norms, read on every spawn |
+| `memory-lessons.ts` | situational knowledge, read at the moment of use |
+| `memory-urls.ts` | one URL per file |
+| `memory-secrets.ts` | encrypted values and the custody of the key |
+| `memory-keys.ts` | access grants, and how each is revoked |
+| `memory-shipped.ts` | what the kit carries in its own `memory/` and installs into homes |
+
+The genus note -- which tier a claim belongs to, by how it rots -- lives at the foot of
+`memory-facts.ts`, because that is where the question is usually asked.
