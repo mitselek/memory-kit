@@ -7,6 +7,12 @@ from `caps.ts`; regenerate with `tools/extract-caps.py`, which `--check` catches
 
 Reading an interface needs no node -- only the extract does, and that is committed.
 
+**Kept short on purpose.** These files are read every session, so their length is a tax every
+context pays forever -- the same argument that caps the rules tier. An interface states the
+shape and the one thing not obvious from it; the reasoning lives in `memory/lessons/`, which
+is read at the moment of use. When a comment here grows past a few lines, it has become a
+lesson.
+
 The types state the convention, the fixtures are the contract.
 
 | file | tier |

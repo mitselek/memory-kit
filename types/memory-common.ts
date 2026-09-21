@@ -3,21 +3,8 @@
 /** YYYY-MM-DD. */
 export type IsoDate = string;
 
-/** A claim's address, one grammar across all tiers (REF_PATTERN in caps.ts):
- *
- *    sha              7-40 hex       a commit
- *    path             repo-relative  a file
- *    #NN                             an issue
- *    urls/<name>                     a file in the urls tier; URLs never inline
- *    po:SNN                          a verbal ruling, by session
- *    <person>:<date>                 a human said it, and when
- *    <date>                          noted on that date, source unknown
- *    ''               blank          no source known
- *
- * Blank is COUNTED, never failed. Failing blanks buys fabricated refs, which are worse
- * than missing ones: a fabricated ref survives a sweep.
- *
- * A memory record is a CLAIM about a source, never a source. Open the ref before citing it
- * in another artifact.
- */
+/** A claim's address (REF_PATTERN in caps.ts):
+ *    sha | path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | '' (blank)
+ *  Blank is COUNTED, never failed: a fabricated ref survives a sweep, a missing one does not.
+ *  A memory record is a claim about a source, never a source. Open the ref before citing it. */
 export type Ref = string;

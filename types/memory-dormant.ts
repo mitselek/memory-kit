@@ -1,7 +1,5 @@
-// Dormant facts: memory/dormant/<subject>.yaml.
-//
-// A fact PARKED, not deleted: out of play, may return. Exempt from the live sweep; revisited
-// on the cadence `reviewed` states. Parking moves ONE fact, not a whole subject file.
+// Dormant: memory/dormant/<subject>.yaml. A fact parked, not deleted; exempt from the sweep.
+// Parking moves one fact, not a subject file.
 
 import type { Fact, FactsFile } from './memory-facts';
 
@@ -14,8 +12,6 @@ export interface DormantFact extends Fact {
   parked: string;
   /** How and when to check whether it should return. */
   reviewed: string;
-  // `verified` inherits its meaning: the last time `reviewed` was actually done.
 }
 
-// A fact that something live still cites is not dormant.
-// A truly dead fact is deleted, not parked. Git is the archive.
+// A fact something live still cites is not dormant. A dead one is deleted.
