@@ -2,9 +2,9 @@
 # A claim about sources, never a source. Open the ref before citing.
 
 current:
-  - label: WARNING
-    record: "Shipped rules cost ~680 tok/session; the incident field is most of it. Strip on ship?"
-    ref: README.md
+  - label: LEARNED
+    record: "680 tok/session is 0.07% of 1M -- measured right, judged wrong. Cost stated, not feared."
+    ref: mihkel:2026-09-21
   - label: WIP
     record: "lint/memory-lint.sh unwritten -- the tier that makes every other tier enforceable."
     ref: types/caps.ts

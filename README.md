@@ -108,20 +108,19 @@ commit, tokens approximated at 4 chars each -- regenerate with `tools/weigh.py`.
 | at the moment of use | lesson index + bodies (4) | 1 520 |
 | once, at adoption | ADOPTION, UPGRADE, README, GOVERNANCE | 4 930 |
 
-**The per-session figure is the only one that compounds.** Everything else is read when a
-question actually arises, which is the entire reason the tiers are split by read-time rather
+**The per-session figure is the only one paid unconditionally.** Everything else is read when
+a question actually arises, which is the entire reason the tiers are split by read-time rather
 than by importance.
 
-### A finding from measuring this
+### Is 680 tokens a lot?
 
-680 tokens for eight rules is more than eight rules should cost. The weight is in the
-`incident` field: every shipped rule carries the recorded mistake that justifies it, and that
-justification is for the kit's maintainers, not for the assistant reading rules on spawn. The
-admission test needs the incident; the home does not.
+No. On a 1M-token context that is 0.07%, and it is paid once per session rather than
+accumulating. The figure is published because a convention that cannot state its own cost is
+asking for trust it has not earned -- not because the cost is alarming.
 
-Left standing for now, deliberately -- the kit does not fix things it has not lived with. The
-candidate fix is to strip `incident` from what ships while keeping it in the source, which
-would take the per-session cost to roughly 300 tokens. Filed as a finding, not yet a change.
+It would start to matter in two cases, and the kit watches for both: a home on a small context
+window, and a `core` that has grown by a rule per release. The second is why shipped rules are
+capped at 8 and additions are subtractive by default.
 
 ## How a home uses this
 
