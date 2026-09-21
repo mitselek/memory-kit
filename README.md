@@ -55,6 +55,13 @@ Binding consequences:
 Test for anything proposed: *would this still make sense for a different model, on a different
 harness, in a different language?* If not, it is an adapter or a consumer's business.
 
+**Worked example -- playbooks vs skills.** A home's domain procedures (how to triage mail, how
+to tend the box) are plain markdown files, read when a procedure calls for them. Some harnesses
+offer a native "skill" mechanism that would surface the same files automatically by description.
+The kit does not adopt it: a skill manifest is a harness feature, and a home whose competence
+is expressed as skills cannot be read by a harness that has none. Procedures stay plain files.
+A harness with skills may wrap them in its adapter -- the file remains the source.
+
 ## Tooling (ruled 2026-09-21)
 
 Parsing and schema generation: **python3 + PyYAML**. Line-shaped checks (row and char caps):
