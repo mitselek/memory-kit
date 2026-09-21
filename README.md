@@ -92,10 +92,20 @@ origin doubles as the test.
 
 ## `core/` -- content that ships with the kit
 
-The kit carries a small body of content every home may adopt as-is: memory-hygiene **rules**
-and convention **lessons**. Facts are almost never universal -- a fact is a claim about a
-particular present -- so `core/facts/` holds only facts about the kit's own tooling, and ships
-empty rather than padded.
+The kit carries content that is installed into every adopting home, so that the home's own
+assistant knows what its memory convention is, where it came from, how to upgrade it and how to
+talk back -- without needing anything external.
+
+Two kinds, marked per row:
+
+- **mandatory** -- the kit's self-description and operating rules: the repo address, the pinned
+  version, how to upgrade, how to report, never edit inside the subtree, never write a
+  credential in the clear. A home cannot opt out of knowing where its own kit comes from.
+- **optional** -- memory-hygiene universals. A home may disable one by naming it with a reason
+  in its config; the lint reports the divergence, never forbids it.
+
+Facts about a home are never universal -- a fact is a claim about a particular present -- so
+`core/facts/` holds facts about the kit itself and nothing else.
 
 Core content costs a home its spawn budget forever, so it is capped harder than the home's own:
 
@@ -103,7 +113,7 @@ Core content costs a home its spawn budget forever, so it is capped harder than 
 |---|---|---|
 | `core/rules.yaml` | 8 rows | every row is read on every spawn in every home that adopts it |
 | `core/lessons/` | uncapped | read at the moment of use, not on spawn |
-| `core/facts/` | 10 | facts about the kit's tooling only |
+| `core/facts/` | 10 | facts about the kit itself only: repo, version, upgrade, feedback, lint |
 
 **Admission test for a core rule:** would a home that lacks it make a specific, repeated,
 recorded mistake? Each core rule cites the incident that created it. No incident, no core --
