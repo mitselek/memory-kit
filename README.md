@@ -30,7 +30,10 @@ Resolved questions:
   `<date>` for "noted, no source". **Provisional** -- judged on the household migration in practice.
 - Session transcripts are dropped on conversion; rows convert into a tier or die. **Provisional**, same test.
 - Harness-managed auto-memory stays outside the kit; each consumer states that boundary as a fact.
-- Phase 1 is authored by framework-research (Aen), reviewed by Passepartout.
+- **The household drives the kit** (PO ruling, 21.09 -- supersedes the earlier Q6): Passepartout
+  synthesizes and authors; framework-research (Aen) contributes the shapes it has run and reviews;
+  every convention is adopted by the household FIRST, then the seed, then the team. Proven-first
+  starts at home.
 
 ## Ref grammar
 
@@ -58,4 +61,5 @@ CHANGELOG.md
 ## Status
 
 Phase 0 -- charter. Nothing but this README, `GOVERNANCE.md`, `VERSION`, `CHANGELOG.md`.
+First adopter and synthesizer: Passepartout (the household). Phase 1 begins with its own migration.
 Plan of record: `ai-teams/designs/new/memory-kit/plan.md`. Discussion: ai-teams #122.
