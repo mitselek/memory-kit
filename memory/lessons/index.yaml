@@ -1,0 +1,9 @@
+# GENERATED from the lesson files -- never hand-carried. Shape: types/memory-lessons.ts.
+# Regenerate with tools/gen-lesson-index.py (unwritten: see scratchpad).
+
+lessons:
+  - slug: talking-back-to-the-kit
+    summary: "What to report upstream after adopting or upgrading, and what stays home."
+    learned: "2026-09-21"
+    ref: "#1"
+    enforcement: recognition
