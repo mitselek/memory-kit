@@ -29,7 +29,7 @@ def extract():
     missing = [k for k in (
         "CURRENT_CAP", "TOTAL_CAP", "RECORD_CHAR_CAP", "FACTS_PER_FILE", "FACT_WORD_CAP",
         "DORMANT_PER_FILE", "RULES_CAP", "RULE_CHAR_CAP", "CORE_RULES_CAP", "CORE_FACTS_CAP",
-        "LESSON_INDEX_LINE_CAP") if k not in nums]
+        "OBLIGATION_CHAR_CAP", "LESSON_INDEX_LINE_CAP") if k not in nums]
     if missing:
         sys.exit(f"memory-kit: types/caps.ts is missing {', '.join(missing)}")
     if "REF_PATTERN" not in strs:
@@ -64,6 +64,9 @@ def extract():
         "core:",
         f"  rules: {nums['CORE_RULES_CAP']}",
         f"  facts: {nums['CORE_FACTS_CAP']}",
+        "",
+        "obligations:",
+        f"  obligation_chars: {nums['OBLIGATION_CHAR_CAP']}",
         "",
         "lessons:",
         f"  index_line_chars: {nums['LESSON_INDEX_LINE_CAP']}",

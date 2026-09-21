@@ -24,6 +24,9 @@ core:
   rules: 8
   facts: 10
 
+obligations:
+  obligation_chars: 120
+
 lessons:
   index_line_chars: 120
 

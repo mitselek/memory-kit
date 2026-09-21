@@ -29,8 +29,8 @@ current:
   - label: GOTCHA
     record: "The kit broke its own urls-never-inline rule on day one; its own check caught it."
     ref: 4a589aa
-  - label: DEFERRED
-    record: "Obligations tier (waiting-on, owner + expiry): v0.2 question, needs a proving home."
+  - label: DECISION
+    record: "Obligations ship as a tier in v0.1: current is regenerated, so it cannot hold them."
     ref: "#1"
 
 staging:
