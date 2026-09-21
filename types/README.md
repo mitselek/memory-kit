@@ -1,15 +1,13 @@
 # types
 
-The canon. Shape, constants and the rationale that goes with them, in the notation
-framework-research and ai-locum already use.
+The canon. Shape, constants and the rationale that goes with them.
 
 Hand-written, and the only place a cap or a field may be changed. `caps.yaml` is generated
 from `caps.ts`; regenerate with `tools/extract-caps.py`, which `--check` catches when stale.
 
 Reading an interface needs no node -- only the extract does, and that is committed.
 
-There is no JSON Schema here. A second expression of one truth is the drift this repo exists
-to prevent: the types state the convention, the fixtures are the contract.
+The types state the convention, the fixtures are the contract.
 
 | file | tier |
 |------|------|
