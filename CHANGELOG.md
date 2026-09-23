@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Ruling 2026-09-23: **long-term knowledge is a deliberate gap the consumer fills.** The kit
+  covers operational memory -- what is acted on this session. Articles, research and reference
+  material stay outside, because their shape encodes a theory of knowledge management (wiki,
+  Obsidian, Zettelkasten, unnamed folder) and the kit does not dictate one. Same treatment as
+  harness auto-memory: the consumer names the boundary as a fact rather than leaving it to be
+  inferred. Working line: *if it rots it is a fact; if it accumulates it is knowledge.* Parked,
+  not refused -- D6 revisits at v0.3 with a `profile:` section if a second consumer wants the
+  same shape. README section added; pilot question 6 added to the alpha notes.
+
 ## v0.1.0-alpha.1 -- 2026-09-23 -- pilot preview
 
 Feature-incomplete by design. An input channel, not a blessing: proven-first (D5) stands, and

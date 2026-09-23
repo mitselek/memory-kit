@@ -61,6 +61,13 @@ Feedback on these is worth more to us than feedback on the settled parts:
    survive contact with your material?
 5. **Anything that made you re-read your whole memory to make sense of an upgrade.** That is
    a reportable defect: it means the kit has leaked into your data.
+6. **Your long-term knowledge, wherever it lives.** The kit covers operational memory only --
+   what gets acted on this session. Articles, research and reference material are a deliberate
+   gap you fill yourself: a wiki, an Obsidian vault, a Zettelkasten, a folder nobody named.
+   We want to know **what you run and where you draw the line** between it and `facts/`. Our
+   working line is: *if it rots, it is a fact; if it accumulates, it is knowledge.* Tell us
+   where that fails you. Two consumers converging on one shape is what would make it a tier
+   (D6 revisits at v0.3); one is not yet a convention.
 
 ## Steadier, but not frozen
 

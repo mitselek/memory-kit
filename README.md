@@ -62,6 +62,44 @@ The kit does not adopt it: a skill manifest is a harness feature, and a home who
 is expressed as skills cannot be read by a harness that has none. Procedures stay plain files.
 A harness with skills may wrap them in its adapter -- the file remains the source.
 
+## What the kit does NOT cover -- and why that is deliberate (ruled 2026-09-23)
+
+The kit is **operational memory**: what an assistant must hold to act correctly in the session
+it is in. Facts it checks, rules it obeys, obligations it is waiting on, the scratchpad it
+rewrites. All of it is short, capped, and lives to be *acted on*.
+
+**Long-term knowledge is a deliberate gap. You fill it.**
+
+Articles, research, meeting notes, reference material, the accumulated reading of a household
+or a team -- the things you write to be *read later* rather than acted on now -- are outside
+this kit by design, and that is not an omission waiting to be fixed.
+
+The reason is that its shape is genuinely yours. A wiki of cards. An Obsidian vault. A
+Zettelkasten. A docs site. A folder of Markdown nobody has named. Each of those encodes a
+different theory of how knowledge should be found again, and standardising one would put the
+kit in the business of dictating a knowledge-management philosophy. That is not memory
+conventions, which is the only thing this repo claims to be.
+
+So the kit takes the same position it takes on harness-managed auto-memory:
+
+> **Name your boundary, do not guess at it.** Record where your long-term knowledge lives, and
+> what belongs there rather than in `facts/`, as a fact in your own tree. An assistant that
+> knows the boundary can respect it. One that has to infer it will put a research note in
+> `facts/` and blow the cap, or lose a fact in an article nothing ever re-reads.
+
+The line worth holding: **if it rots, it is a fact; if it accumulates, it is knowledge.** A
+fact has a refutation address and a date it last survived one. An article does not -- it is
+read, cited, superseded, and that is a different life cycle with different tooling.
+
+**This is parked, not refused.** D6 keeps team-only artefacts (FR's wiki cards, `wikiq`,
+spawn manifest, sole-writer protocol) with their team, to be revisited at **v0.3 with a
+`profile:` section if a second consumer wants the same shape**. One consumer's answer to a
+263-entry, ten-writer problem is not yet a convention. Two converging on one would be -- and
+proven-first (D5) is how it would get in.
+
+If you run something long-form, we want to hear what it is and where the line falls for you.
+That is the sixth thing on the pilot's list.
+
 ## Tooling (ruled 2026-09-21)
 
 Parsing and schema generation: **python3 + PyYAML**. Line-shaped checks (row and char caps):
