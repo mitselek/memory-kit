@@ -1,11 +1,10 @@
-// Every numeric cap in the kit. This file is the SOURCE; caps.yaml is generated from it
+// Every numeric cap in the kit. This file is the SOURCE (the VERSION file carries the version); caps.yaml is generated from it
 // by tools/extract-caps.py so the lint has something to read without node.
 //
 // Two caps per tier (rows AND chars) is deliberate: a row cap alone displaces growth into
 // longer rows. Measured 10 of 10 scratchpads in framework-research Phase 0; observed as
 // page-spanning rows in the Passepartout household, 2026-09-06.
 
-export const KIT_VERSION = '0.1.0-dev';
 
 // -- scratchpad
 export const CURRENT_CAP = 15;        // acted on next session; regenerated, never appended

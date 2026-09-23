@@ -22,6 +22,20 @@ NUM = re.compile(r"^export const ([A-Z][A-Z0-9_]*) = (\d+);", re.M)
 STR = re.compile(r"^export const ([A-Z][A-Z0-9_]*) =\s*'((?:[^'\\]|\\.)*)';", re.M | re.S)
 
 
+def _read_version():
+    """The root VERSION file is the ONE place the kit's version lives.
+
+    It was in two places until 2026-09-23 -- here and KIT_VERSION in types/caps.ts --
+    which is the hand-carried number the kit has a lesson against, found in the kit's
+    own output while preparing the first tag. VERSION wins because D3 makes it the
+    contract: a consumer reads VERSION to know what it runs.
+    """
+    v = (pathlib.Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+    if not v:
+        sys.exit("memory-kit: VERSION is empty")
+    return v
+
+
 def extract():
     text = SRC.read_text()
     nums = {m.group(1): int(m.group(2)) for m in NUM.finditer(text)}
@@ -43,7 +57,7 @@ def extract():
         "# The TypeScript interfaces are the canon; this is the flat extract the lint reads,",
         "# so a home needs python3 and nothing else to lint its memory.",
         "",
-        f"version: {strs.get('KIT_VERSION', '0.0.0')}",
+        f"version: {_read_version()}",
         "",
         "scratchpad:",
         f"  current_rows: {nums['CURRENT_CAP']}",
