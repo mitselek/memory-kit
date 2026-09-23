@@ -66,8 +66,7 @@ Feedback on these is worth more to us than feedback on the settled parts:
    gap you fill yourself: a wiki, an Obsidian vault, a Zettelkasten, a folder nobody named.
    We want to know **what you run and where you draw the line** between it and `facts/`. Our
    working line is: *if it rots, it is a fact; if it accumulates, it is knowledge.* Tell us
-   where that fails you. Two consumers converging on one shape is what would make it a tier
-   (D6 revisits at v0.3); one is not yet a convention.
+   where that fails you.
 
 ## Steadier, but not frozen
 

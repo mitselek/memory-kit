@@ -92,13 +92,13 @@ fact has a refutation address and a date it last survived one. An article does n
 read, cited, superseded, and that is a different life cycle with different tooling.
 
 **This is parked, not refused.** D6 keeps team-only artefacts (FR's wiki cards, `wikiq`,
-spawn manifest, sole-writer protocol) with their team, to be revisited at **v0.3 with a
-`profile:` section if a second consumer wants the same shape**. One consumer's answer to a
-263-entry, ten-writer problem is not yet a convention. Two converging on one would be -- and
-proven-first (D5) is how it would get in.
+spawn manifest, sole-writer protocol) with their team, revisited at v0.3. What the kit
+standardises, and when, is the PO's call on the evidence -- not a threshold a consumer can
+aim at.
 
 If you run something long-form, we want to hear what it is and where the line falls for you.
-That is the sixth thing on the pilot's list.
+Run it however suits you; we would rather see what you actually do than what you think we
+are looking for.
 
 ## Tooling (ruled 2026-09-21)
 
