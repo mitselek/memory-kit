@@ -12,6 +12,12 @@ Consumers at charter (2026-09-21):
 Why: the convention lived as code in two places and diverged in four of seven tiers within
 five sessions. Three implementations of one idea is the failure mode this repo removes.
 
+## Natural language is the source code
+
+This repository is a program. Its language happens to be English: the instructions, playbooks and memory formats here are the source, written and signed by a human author; an agent harness is the runtime that executes them, and any code files are compilation artifacts of that source. We hold the old-fashioned view that authorship follows the specification, not the build tool -- nobody credits the compiler. The design documents carry dated, human-signed decisions precisely so that this provenance stays legible.
+
+The world still files natural language under "prose" and code under "engineering". This repo is built on the expectation that the distinction is already gone: a sufficiently determinate instruction is a program, whoever runs it. We just got here early.
+
 ## Rulings (PO, 2026-09-21)
 
 | # | Ruling |
