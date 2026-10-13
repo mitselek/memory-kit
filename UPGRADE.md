@@ -53,6 +53,14 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   matter from your existing index), then `--check`, then the lint. A home that already keeps its
   own front matter: compare its keys with `LessonFrontMatter` first.
 
+- **0.1.0-alpha.2 -> 0.1.0-alpha.3:** no data step -- the pull changes nothing in a home's
+  memory; run the lint to confirm. New, optional: the Claude Code obligations pane. From the home
+  root: `claude plugin marketplace add ./memory-kit/adapters/claude-code`, then
+  `claude plugin install obligations-pane@memory-kit`. The install notes "2 userConfig options
+  not yet set": harmless, the defaults apply (agent name = the folder's name; auto-open where an
+  obligations file exists). A session whose working folder is not the home root does not find
+  the home's memory yet (known gap, next release).
+
 ## Always
 
 - The home's config for the kit lives outside the subtree; a pull must never clobber it.
