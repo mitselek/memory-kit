@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.0-alpha.5 -- 2026-10-14 -- pane stays on its home; never squash the subtree
+
 - **Pane 0.2.1: reads the home the session started in** (#3). A shell `cd` into another repo
   mid-session used to switch the pane to that repo's ledger. The first `session.start` cwd is
   kept in `$.state` and survives a mod reload. Built by the workshop's pane agent; 46/46 tests.
