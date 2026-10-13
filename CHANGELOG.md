@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The kit's own `memory/obligations.yaml` is empty: both rows (expired 05.10 and 10.10) were
+  resolved -- obligations shipped as a tier, and the household adopted on 2026-10-13. A home
+  vendoring the kit no longer sees them as its own (household findings 14 and 21).
 - UPGRADE: never squash-merge the PR that brings the kit's subtree into a home; the next
   `git subtree pull` refuses. Reported by mvox (2026-10-13).
 - The GitHub repo is now a push mirror of Codeberg (sync on every push). Push to Codeberg only;
