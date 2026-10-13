@@ -29,6 +29,7 @@ import {
   trailingLinksOf,
   urlNamesOf,
   urlOfFile,
+  wheelStep,
 } from '../hooks/obligations'
 import type { ObligationRow } from '../types'
 import { WORKSHOP_YAML } from './fixtures/data'
@@ -161,6 +162,18 @@ describe('scroll index', () => {
     expect(step(2, 1, 3)).toBe(2)
     // A list that shrank under a stale index steps from the clamped position.
     expect(step(9, -1, 3)).toBe(1)
+  })
+})
+
+describe('wheel step', () => {
+  test('one item per event by sign, then 150 ms ignored', () => {
+    expect(wheelStep(3, 1_000, undefined)).toEqual({ delta: 1, lastStep: 1_000 })
+    expect(wheelStep(-7, 1_000, undefined)).toEqual({ delta: -1, lastStep: 1_000 })
+    expect(wheelStep(1, 1_050, 1_000)).toEqual({ delta: 0, lastStep: 1_000 })
+    expect(wheelStep(1, 1_149, 1_000)).toEqual({ delta: 0, lastStep: 1_000 })
+    expect(wheelStep(1, 1_150, 1_000)).toEqual({ delta: 1, lastStep: 1_150 })
+    expect(wheelStep(0, 5_000, 1_000)).toEqual({ delta: 0, lastStep: 1_000 })
+    expect(wheelStep(1, 500, 1_000)).toEqual({ delta: 1, lastStep: 500 })
   })
 })
 

@@ -5,7 +5,7 @@
 - **First adapter tool: `adapters/claude-code/obligations-pane/`** -- a read-only Claude Code
   side pane over `memory/obligations.yaml`: due-date order, expired/due-in-7-days counts, stable
   per-actor colours, `urls/` refs as clickable links, footer with agent names, model letters and
-  context weight -- per subagent too, from each loop's latest turn.step usage; refresh every 20 s. Spec by the PO (Mihkel), built by the workshop home
+  context weight -- per subagent too, from each loop's latest turn.step usage; refresh every 20 s; mouse-wheel scrolling, one item per burst (150 ms throttle), header and footer fixed. Spec by the PO (Mihkel), built by the workshop home
   (Paertel), proven there first: validate clean, 30/30 tests. API facts it found are in its README.
 - README: adapters may carry harness-bound tools in `adapters/<harness>/<tool>/`.
 

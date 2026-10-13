@@ -494,3 +494,17 @@ export function fitWeight(weight: string, available: number): string {
   if (weight === '' || NAME_WIDTH + 3 + Array.from(weight).length <= available) return weight
   return weight.split('/')[0] ?? weight
 }
+
+/** After a wheel step, further ui.scroll events are ignored this long: one burst, one item. */
+export const WHEEL_THROTTLE_MS = 150
+
+/**
+ * One wheel event: the items to step (-1, 0 or 1, never |by|) and the new last-step time.
+ * An event within WHEEL_THROTTLE_MS after the last step is ignored.
+ */
+export function wheelStep(by: number, now: number, lastStep: number | undefined): { delta: number; lastStep: number | undefined } {
+  const gap = lastStep === undefined ? Infinity : now - lastStep
+  // A clock that went backwards (a reset) starts a fresh burst.
+  if (by === 0 || (gap >= 0 && gap < WHEEL_THROTTLE_MS)) return { delta: 0, lastStep }
+  return { delta: Math.sign(by), lastStep: now }
+}

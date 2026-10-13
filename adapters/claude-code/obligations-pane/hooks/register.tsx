@@ -39,6 +39,7 @@ import {
   trailingLinksOf,
   urlNamesOf,
   urlOfFile,
+  wheelStep,
 } from './obligations'
 import type { Segment } from './obligations'
 
@@ -159,6 +160,18 @@ export async function refresh($: EngineInterface, agentName: string): Promise<vo
   await $.state.set({ plugin: 'obligations-pane', key: 'snapshot' }, value)
 }
 
+let lastWheelStep: number | undefined
+
+/** One wheel event: at most one item, and nothing within the throttle of the last step. */
+async function wheel($: EngineInterface, by: number): Promise<void> {
+  const { delta, lastStep } = wheelStep(by, await $.clock.now(), lastWheelStep)
+  lastWheelStep = lastStep
+  if (delta === 0) return
+  const snap = await read($, snapshot)
+  const length = snap?.items.length ?? 0
+  await update($, index, i => step(i, delta, length))
+}
+
 /** refresh, never throwing: a failure goes to the debug log and the last snapshot stays. */
 async function safeRefresh($: EngineInterface, agentName: string): Promise<void> {
   try {
@@ -224,6 +237,15 @@ export const register: Register = (on, options) => {
     return result
   }).catch(($, e, next) => next(e))
 
+  // Mouse wheel (and scroll keys) over the pane: strictly one obligation per event, by e.by's
+  // sign, then 150 ms of ignored events (a trackpad burst is one item); clamped to the list.
+  // No next(e): the engine's window stays, so the header and footer stay fixed; the index
+  // write redraws the pane.
+  on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    await wheel($, e.by)
+    return {}
+  }).catch(() => ({}))
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const snap = await read($, snapshot)
@@ -252,16 +274,19 @@ export const register: Register = (on, options) => {
           {snap.source === 'ok' ? `  ${countsLabel(countsOf(items, today))}` : ''}
         </Text>
         {items.length > 1 && (
-          <Box flexDirection="row" gap={1} flexShrink={0}>
+          <Box flexDirection="row" flexShrink={0}>
             <Text color={HEADER_FG}>
               {first + 1}/{items.length}
             </Text>
-            <Button key="up" plain hotkey="k" onPress={move(-1)}>
-              <Text color={HEADER_FG}>▲</Text>
-            </Button>
-            <Button key="down" plain hotkey="j" onPress={move(1)}>
-              <Text color={HEADER_FG}>▼</Text>
-            </Button>
+            {/* Not drawn: they only carry the k / j hotkeys. The wheel scrolls (ui.scroll). */}
+            <Box display="none">
+              <Button key="up" plain hotkey="k" onPress={move(-1)}>
+                ▲
+              </Button>
+              <Button key="down" plain hotkey="j" onPress={move(1)}>
+                ▼
+              </Button>
+            </Box>
           </Box>
         )}
       </Box>

@@ -298,3 +298,76 @@ describe('footer at narrow widths', () => {
     }
   })
 })
+
+describe('mouse wheel', () => {
+  const wheel = ($: Engine, by: number) =>
+    $.ui.scroll({
+      component: 'Pane',
+      requestId: 'obligations',
+      offset: 0,
+      by,
+      bodyRows: 40,
+      contentRows: 40,
+      origin: { kind: 'person' },
+      pointer: { row: 5, column: 3 },
+    } as never)
+
+  test('strictly one item per burst: |by| ignored, 150 ms throttle, clamped at both ends', async ($, on) => {
+    worldOf(on, KIT)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    const position = async () => (await textOf(ui)).find(t => /^\d+\/\d+$/.test(t))
+    const firstDate = async () => (await textOf(ui)).find(t => /^\d{4}-\d{2}-\d{2}$/.test(t))
+
+    // |by| = 3 steps one.
+    await wheel($, 3)
+    expect(await position()).toBe('2/6')
+    expect(await firstDate()).toBe('2026-10-28')
+    // Two events 50 ms apart: one step.
+    await clock.advance(200)
+    await wheel($, 1)
+    await clock.advance(50)
+    await wheel($, 1)
+    expect(await position()).toBe('3/6')
+    // Two events 200 ms apart: two steps.
+    await clock.advance(200)
+    await wheel($, 1)
+    await clock.advance(200)
+    await wheel($, 1)
+    expect(await position()).toBe('5/6')
+    // Clamped at the end, then at the top.
+    for (let i = 0; i < 4; i++) {
+      await clock.advance(200)
+      await wheel($, 5)
+    }
+    expect(await position()).toBe('6/6')
+    expect(await firstDate()).toBe('2026-12-31')
+    for (let i = 0; i < 8; i++) {
+      await clock.advance(200)
+      await wheel($, -40)
+    }
+    expect(await position()).toBe('1/6')
+    await ui.unmount()
+  })
+
+  test('the engine window is kept: header and footer stay, no arrows drawn', async ($, on) => {
+    worldOf(on, KIT)
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    const header = async () => (await textOf(ui)).find(t => t.startsWith('2026-') && t.includes('expired'))
+    const footer = async () => (await textOf(ui)).find(t => t.startsWith('kit '))
+    const before = { header: await header(), footer: await footer() }
+
+    const result = await wheel($, 1)
+    expect(result).toEqual({})
+    expect(await header()).toBe(before.header)
+    expect(await footer()).toBe(before.footer)
+    // The k / j buttons are mounted (hotkeys) but sit in a Box that is not displayed.
+    const hidden = (await ui.findAll({ type: 'Box' })).find(b => b.props.display === 'none')
+    expect(hidden).toBeDefined()
+    expect(hidden?.text).toBe('▲▼')
+    await ui.unmount()
+  })
+})

@@ -7,7 +7,7 @@ plugin API (early access; the API moves between releases).
 ## What it shows
 
 - **Header** (sticky, dark on the pastel): local date and time to the minute, bold, then the
-  counts `N expired · M due ≤7d`, then the scroll position `i/n` and the ▲ ▼ buttons.
+  counts `N expired · M due ≤7d`, then the scroll position `i/n`.
   - Expired means `expires` is before today.
   - Due means `expires` falls between today and today + 7 days, both ends included.
 - **Body**: one row per obligation, ordered by `expires` (expired first), ties by `since`,
@@ -34,8 +34,10 @@ plugin API (early access; the API moves between releases).
   (`e.props.bodyColumns`). The footer subtracts its border and padding and shows `used/window`
   only when the whole line fits, otherwise `used` alone. Its lines wrap rather than truncate, so
   at extreme widths a figure moves to the next row instead of getting an ellipsis.
-- **Scrolling**: ▲ and ▼ step one obligation at a time. The `k` and `j` hotkeys do the same
-  while the pane has the keyboard. The index is clamped to the list.
+- **Scrolling**: the mouse wheel over the pane steps strictly one obligation per event, in the
+  direction of the tick. Further events are ignored for 150 ms after a step, so a trackpad or
+  fast-wheel burst moves one item. The index is clamped to the list. The `k` and `j` hotkeys step one while the
+  pane has the keyboard. They live on two Buttons inside a Box that is not displayed.
 - **Refresh**: every 20 s, which also moves the clock, and at the end of every turn. The mod
   API has no file watch, so the file is re-read each time.
 - **Empty states**: a missing file says `no obligations file here (<path>)`. An empty list says
@@ -110,7 +112,7 @@ Colours are not shown: the background is pastel yellow, the header is dark, Mihk
 the Prusa actor gets a palette colour, and the link is dark blue.
 
 ```text
- 2026-10-14 01:14  0 expired · 1 due ≤7d        1/6 ▲ ▼
+ 2026-10-14 01:14  0 expired · 1 due ≤7d           1/6
 
  2026-10-21 Mihkel Start print M3T06 on keldri (on the
  printer since 2026-10-13 07:28, not started).
@@ -159,6 +161,10 @@ In short: `$.agent.list()` has no `model` and excludes the main loop, and `Link`
 - `Link` has no colour prop. The dark blue comes from a `Text` child inside the `Link`, since a
   `Link`'s children may be inline elements.
 - A `Pane` reads `e.props.scroll.bodyRows` for its height. The engine scrolls a focused pane's
-  body with the arrow keys. The ▲ ▼ index is used here so the header and footer stay put.
+  body with the arrow keys.
+- `ui.scroll` (matcher `{ component: 'Pane', requestId }`) fires before the window moves, for
+  the wheel and the scroll keys. The hook steps the index by `sign(e.by)` and answers `{}` without
+  `next(e)`, so the engine's window stays and the header and footer stay fixed. The `$.state`
+  write redraws the pane, so no `$.ui.invalidate` is needed.
 - A function that receives `$` must be declared at the module's top level. `claude plugin
   validate` refuses `$` passed to a closure.
