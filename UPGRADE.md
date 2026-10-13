@@ -58,8 +58,8 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   root: `claude plugin marketplace add ./memory-kit/adapters/claude-code`, then
   `claude plugin install obligations-pane@memory-kit`. The install notes "2 userConfig options
   not yet set": harmless, the defaults apply (agent name = the folder's name; auto-open where an
-  obligations file exists). A session whose working folder is not the home root does not find
-  the home's memory yet (known gap, next release).
+  obligations file exists). A session whose working folder is not the home root: put a
+  `memory-kit.conf` there with an absolute `memory_dir` (po-team's setup).
 
 ## Always
 
