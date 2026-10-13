@@ -5,11 +5,13 @@ import {
   actorColor,
   addDays,
   clampIndex,
+  contextLoad,
   contextWeight,
   countsLabel,
   countsOf,
   fitActor,
   fitName,
+  fitWeight,
   isoDate,
   isoMinute,
   LINK_FG,
@@ -18,10 +20,12 @@ import {
   modelLetter,
   offsetFromZ,
   parseObligations,
+  recordStep,
   segmentsOf,
   sortByExpires,
   statusOf,
   step,
+  subagentWeight,
   trailingLinksOf,
   urlNamesOf,
   urlOfFile,
@@ -187,11 +191,56 @@ describe('footer columns', () => {
     expect(modelLetter(undefined)).toBe('·')
   })
 
+  test('footer figure: whole when the line fits, /window dropped when not, never cut', () => {
+    // name 10 + space + letter + space = 13 columns before the figure.
+    expect(fitWeight('220k/1M', 20)).toBe('220k/1M')
+    expect(fitWeight('220k/1M', 19)).toBe('220k')
+    expect(fitWeight('220k/1M', 10)).toBe('220k')
+    expect(fitWeight('84k', 10)).toBe('84k')
+    expect(fitWeight('', 10)).toBe('')
+  })
+
   test('context weight', () => {
     expect(contextWeight(127_400, 1_000_000)).toBe('127k/1M')
     expect(contextWeight(1_520_000, 2_000_000)).toBe('1.5M/2M')
     expect(contextWeight(54_000, 200_000)).toBe('54k/200k')
     expect(contextWeight(undefined, 1_000_000)).toBe('-/1M')
+  })
+})
+
+describe('subagent context load', () => {
+  const usage = (input: number, read: number, write: number, out: number, model = 'claude-sonnet-5-5') => ({
+    input_tokens: input,
+    cache_read_input_tokens: read,
+    cache_creation_input_tokens: write,
+    output_tokens: out,
+    model,
+  })
+
+  test('a step sums input, cache read, cache write and output', () => {
+    expect(contextLoad(usage(1_200, 80_000, 2_500, 300))).toBe(84_000)
+  })
+
+  test('the latest step wins; agents are kept apart', () => {
+    let loads = recordStep({}, 'a1', usage(1_000, 50_000, 0, 0))
+    loads = recordStep(loads, 'a2', usage(10, 0, 0, 0, 'claude-haiku-5-5'))
+    loads = recordStep(loads, 'a1', usage(1_000, 83_000, 0, 0))
+    expect(loads).toEqual({ a1: { tokens: 84_000, model: 'claude-sonnet-5-5' }, a2: { tokens: 10, model: 'claude-haiku-5-5' } })
+  })
+
+  test('the main loop (no agentId) and steps with no usage are not recorded', () => {
+    const before = { a1: { tokens: 5, model: 'm' } }
+    expect(recordStep(before, undefined, usage(1, 1, 1, 1))).toEqual(before)
+    expect(recordStep(before, 'a1', null)).toEqual(before)
+  })
+
+  test('window only when the model is the main loop\'s; used alone otherwise; nothing when unknown', () => {
+    const load = { tokens: 84_000, model: 'claude-sonnet-5-5' }
+    expect(subagentWeight(load, 'claude-sonnet-5-5', 1_000_000)).toBe('84k/1M')
+    expect(subagentWeight(load, 'claude-opus-5-5', 1_000_000)).toBe('84k')
+    expect(subagentWeight(load, '', 1_000_000)).toBe('84k')
+    expect(subagentWeight(load, 'claude-sonnet-5-5', null)).toBe('84k')
+    expect(subagentWeight(undefined, 'claude-sonnet-5-5', 1_000_000)).toBe('')
   })
 })
 

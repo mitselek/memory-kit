@@ -16,6 +16,8 @@ import {
   EXPIRED_DATE_BG,
   fitActor,
   fitName,
+  fitWeight,
+  FOOTER_CHROME,
   HEADER_BG,
   HEADER_FG,
   isoDate,
@@ -28,10 +30,12 @@ import {
   offsetFromZ,
   PANE_BG,
   parseObligations,
+  recordStep,
   segmentsOf,
   sortByExpires,
   statusOf,
   step,
+  subagentWeight,
   trailingLinksOf,
   urlNamesOf,
   urlOfFile,
@@ -45,6 +49,8 @@ export const REFRESH_MS = 20_000
 const snapshot = atom({ plugin: 'obligations-pane', key: 'snapshot' } as const, null)
 const index = atom({ plugin: 'obligations-pane', key: 'index' } as const, 0)
 const models = atom({ plugin: 'obligations-pane', key: 'models' } as const, {})
+const loads = atom({ plugin: 'obligations-pane', key: 'loads' } as const, {})
+const mainModel = atom({ plugin: 'obligations-pane', key: 'mainModel' } as const, '')
 
 /** Where the obligations live for a working directory: <cwd>/<memory_dir>/obligations.yaml. */
 async function memoryRoot($: EngineInterface, cwd: string): Promise<string> {
@@ -192,6 +198,22 @@ export const register: Register = (on, options) => {
 
   // agent.list() carries no model: remember what each spawn resolved to. An observer: if it
   // fails, the spawn goes on (next(e) replays a call that already settled, runs it otherwise).
+  // Context load per subagent: the latest step's usage. Observe only: every chunk passes
+  // through, the result is returned unchanged, and a failure here never touches the step.
+  on('turn.step', async function* ($, e, next) {
+    const result = yield* next(e)
+    try {
+      const usage = result.usage
+      if (usage !== null) {
+        if (e.agentId === undefined) await $.state.set({ plugin: 'obligations-pane', key: 'mainModel' }, usage.model)
+        else await update($, loads, l => recordStep(l, e.agentId, usage))
+      }
+    } catch {
+      // A lost load figure is not worth a failed hook.
+    }
+    return result
+  })
+
   on('agent.spawn', async ($, e, next) => {
     const result = await next(e)
     const id = result.agentId
@@ -206,6 +228,8 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const snap = await read($, snapshot)
     const at = await read($, index)
+    const agentLoads = await read($, loads)
+    const mainId = await read($, mainModel)
     const rows = e.props.scroll.bodyRows
 
     if (snap === null) {
@@ -291,12 +315,13 @@ export const register: Register = (on, options) => {
     const agentLine = (key: string, name: string, model: string, tail: string, dim: boolean) => {
       const letter = modelLetter(model)
       return (
-        <Text key={key} color={DATE_FG} dimColor={dim} wrap="truncate-end">
+        // wrap, never truncate: the figure is the point of the line (fitWeight keeps it short).
+        <Text key={key} color={DATE_FG} dimColor={dim} wrap="wrap">
           {fitName(name)}{' '}
           <Text bold color={MODEL_COLORS[letter]} dimColor={letter === '·'}>
             {letter}
-          </Text>{' '}
-          {tail}
+          </Text>
+          {tail !== '' ? ` ${fitWeight(tail, e.props.bodyColumns - FOOTER_CHROME)}` : ''}
         </Text>
       )
     }
@@ -304,7 +329,12 @@ export const register: Register = (on, options) => {
     const footer = (
       <Box key="footer" flexDirection="column" flexShrink={0} paddingX={1} borderStyle="single" borderColor="#b8a24a">
         {agentLine('self', snap.self.name, snap.self.model, contextWeight(snap.self.tokens ?? undefined, snap.self.window ?? undefined), false)}
-        {snap.agents.map(a => agentLine(`agent-${a.id}`, a.name, a.model, a.status, a.status !== 'running'))}
+        {snap.agents.map(a => {
+          const load = agentLoads[a.id]
+          const model = load?.model ?? a.model
+          const weight = subagentWeight(load, mainId !== '' ? mainId : snap.self.model, snap.self.window)
+          return agentLine(`agent-${a.id}`, a.name, model, weight, a.status !== 'running')
+        })}
       </Box>
     )
 

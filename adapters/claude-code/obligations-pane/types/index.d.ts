@@ -21,6 +21,9 @@ export type PaneAgent = {
   status: string
 }
 
+/** A subagent's context load from its latest model step, and the model that answered it. */
+export type AgentLoad = { tokens: number; model: string }
+
 /** Everything the pane draws, gathered by one refresh. Rendering does no I/O. */
 export type PaneSnapshot = {
   /** Absolute path of the obligations file this snapshot read (or looked for). */
@@ -47,6 +50,10 @@ declare module 'claude-code' {
       index: number
       /** agentId -> model, captured at agent.spawn (agent.list carries no model). */
       models: Record<string, string>
+      /** agentId -> load of its latest turn.step (subagents only). */
+      loads: Record<string, AgentLoad>
+      /** The model id the main loop's latest step reported ('' before one). */
+      mainModel: string
     }
   }
 }

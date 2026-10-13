@@ -194,11 +194,107 @@ describe('footer agents', () => {
 
     const ui = await mountPane($)
     const texts = await textOf(ui)
-    expect(texts).toContain('braid-sta… H running')
-    expect(texts).toContain('lookup     · idle')
+    expect(texts).toContain('braid-sta… H')
+    expect(texts).toContain('lookup     ·')
     const unknown = await ui.find({ type: 'Text', text: /^·$/ })
     expect(unknown?.props.dimColor).toBe(true)
     expect(texts.some(t => t.startsWith('gone'))).toBe(false)
     await ui.unmount()
+  })
+})
+
+describe('footer context load from turn.step', () => {
+  const stepInput = (agentId?: string) => ({
+    turnId: 't1',
+    index: 0,
+    model: 'x',
+    messageCount: 1,
+    ...(agentId !== undefined && { agentId }),
+  })
+  const stepResult = (model: string, input: number, read: number) => ({
+    turnId: 't1',
+    index: 0,
+    answer: '',
+    toolUses: [],
+    stopReason: 'end_turn',
+    usage: { input_tokens: input, output_tokens: 0, cache_read_input_tokens: read, cache_creation_input_tokens: 0, model },
+  })
+  /** Runs one step through the plugins, beneath them a step that answers `result`. */
+  const runStep = async ($: Engine, input: object): Promise<unknown> => {
+    const stream = $.turn.step(input as never)
+    let r = await stream.next()
+    while (r.done !== true) r = await stream.next()
+    return r.value
+  }
+
+  test('loads per subagent, window when on the main model, used alone otherwise; result unchanged', async ($, on) => {
+    const world = worldOf(on, KIT)
+    mock.clock(on, { now: NOW })
+    const answers: Record<string, ReturnType<typeof stepResult>> = {
+      main: stepResult('claude-opus-5-5', 1_000, 100_000),
+      a1: stepResult('claude-sonnet-5-5', 1_000, 83_000),
+      a2: stepResult('claude-opus-5-5', 2_000, 40_000),
+    }
+    on('turn.step', async function* ($, e) {
+      return answers[e.agentId ?? 'main'] as never
+    })
+    world.agents = [
+      { id: 'a1', name: 'coverage-lib', description: 'c', type: 'teammate', status: 'running' },
+      { id: 'a2', name: 'hairpin', description: 'h', type: 'teammate', status: 'running' },
+      { id: 'a3', name: 'old-one', description: 'o', type: 'teammate', status: 'running' },
+    ]
+    await $.session.start(SESSION)
+
+    expect(await runStep($, stepInput())).toEqual(answers.main)
+    expect(await runStep($, stepInput('a1'))).toEqual(answers.a1)
+    await runStep($, stepInput('a2'))
+
+    const ui = await mountPane($)
+    const texts = await textOf(ui)
+    // The main line keeps the session's own figure: its step is not counted as an agent.
+    expect(texts).toContain('kit        O 127k/1M')
+    expect(texts).toContain('coverage-… S 84k')
+    expect(texts).toContain('hairpin    O 42k/1M')
+    // Started before the pane saw a step: dim dot, no load.
+    expect(texts).toContain('old-one    ·')
+    await ui.unmount()
+  })
+})
+
+describe('footer at narrow widths', () => {
+  test('figures are whole or lose /window, never an ellipsis', async ($, on) => {
+    const world = worldOf(on, KIT)
+    mock.clock(on, { now: NOW })
+    world.tokens = 220_000
+    world.agents = [{ id: 'a1', name: 'coverage-lib', description: 'c', type: 'teammate', status: 'running' }]
+    on('turn.step', async function* ($, e) {
+      return {
+        turnId: 't', index: 0, answer: '', toolUses: [], stopReason: 'end_turn',
+        usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 285_000, cache_creation_input_tokens: 0, model: e.agentId === undefined ? 'claude-opus-5-5' : 'claude-opus-5-5' },
+      } as never
+    })
+    await $.session.start(SESSION)
+    for (const agentId of [undefined, 'a1']) {
+      const stream = $.turn.step({ turnId: 't', index: 0, model: 'x', messageCount: 1, ...(agentId !== undefined && { agentId }) } as never)
+      let r = await stream.next()
+      while (r.done !== true) r = await stream.next()
+    }
+    const footerAt = async (bodyColumns: number) => {
+      const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns }, plugin: PLUGIN } as never)
+      const lines = (await textOf(ui)).filter(t => t.startsWith('kit ') || t.startsWith('coverage'))
+      const line = await ui.find({ type: 'Text', text: /^kit / })
+      await ui.unmount()
+      return { lines, wrap: line?.props.wrap }
+    }
+
+    // 24 columns: 20 inside the footer, exactly "kit        O 220k/1M".
+    expect((await footerAt(24)).lines).toEqual(['kit        O 220k/1M', 'coverage-… O 285k/1M'])
+    // One column less: the window goes, the figure stays whole.
+    const narrow = await footerAt(23)
+    expect(narrow.lines).toEqual(['kit        O 220k', 'coverage-… O 285k'])
+    expect(narrow.wrap).toBe('wrap')
+    for (const width of [16, 20, 23, 30]) {
+      for (const line of (await footerAt(width)).lines) expect(line.slice(13)).not.toContain('…')
+    }
   })
 })

@@ -26,7 +26,14 @@ plugin API (early access; the API moves between releases).
   names get 9 chars + `…`), a colour-coded model letter, and the context weight such as
   `127k/1M`. The letters are F = Fable, O = Opus, S = Sonnet, H = Haiku, and a dim `·` when the model is unknown.
   One more line per live subagent or teammate follows, in the same name and model columns,
-  then its status (dim unless running).
+  then its context load (dimmed unless running). The load is the latest model step's input,
+  cache read, cache write and output tokens added together. It reads `84k/1M` when the agent
+  runs on the main loop's model, whose window the session reports, and `84k` alone otherwise:
+  windows are never guessed. An agent with no step seen yet shows a dim `·` and no load.
+- **Footer figures are never cut.** The pane knows its width from the harness
+  (`e.props.bodyColumns`). The footer subtracts its border and padding and shows `used/window`
+  only when the whole line fits, otherwise `used` alone. Its lines wrap rather than truncate, so
+  at extreme widths a figure moves to the next row instead of getting an ellipsis.
 - **Scrolling**: ▲ and ▼ step one obligation at a time. The `k` and `j` hotkeys do the same
   while the pane has the keyboard. The index is clamped to the list.
 - **Refresh**: every 20 s, which also moves the clock, and at the end of every turn. The mod
@@ -139,11 +146,16 @@ In short: `$.agent.list()` has no `model` and excludes the main loop, and `Link`
 - `$.agent.list()` lists subagents and teammates only, not the main loop, and its rows carry no
   `model`.
   - The main agent's model comes from `$.session.model()`.
-  - Each subagent's model is captured from the `agent.spawn` result and kept in `$.state`.
-    Agents spawned before the mod loaded show a dim `·`.
+  - A subagent's model is the one its latest `turn.step` usage reports, falling back to the
+    model its `agent.spawn` resolved. Agents spawned before the mod loaded show a dim `·` until
+    their next step.
 - `$.session.usage()` with no arguments is free and gives `context.tokens` and
-  `context.window`. A per-subagent context weight is not exposed, so subagent lines show their
-  status instead.
+  `context.window` for the main loop only.
+- A subagent's load comes from `turn.step`: a streaming event, so the hook is an async generator.
+  It does `yield* next(e)`, records `result.usage` under `e.agentId` (absent on the main loop),
+  and returns the result unchanged.
+- In `claude plugin test`, `$.turn.step(...)`'s `.result` came back undefined. The test reads the
+  generator's own return value instead.
 - `Link` has no colour prop. The dark blue comes from a `Text` child inside the `Link`, since a
   `Link`'s children may be inline elements.
 - A `Pane` reads `e.props.scroll.bodyRows` for its height. The engine scrolls a focused pane's

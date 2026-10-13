@@ -4,7 +4,7 @@
 // since, check, expires, ref}]). URL tier: memory-kit/types/memory-urls.ts (memory/urls/<name>,
 // one URL on line 1).
 
-import type { ObligationRow, PaneAgent } from '../types'
+import type { AgentLoad, ObligationRow, PaneAgent } from '../types'
 
 // ---------------------------------------------------------------------------------------------
 // Parsing: a small strict parser for exactly the obligations shape. The mod environment has no
@@ -441,4 +441,56 @@ export function trailingLinksOf(item: ObligationRow, urls: Readonly<Record<strin
 export function basename(path: string): string {
   const parts = path.split('/').filter(p => p !== '')
   return parts[parts.length - 1] ?? path
+}
+
+// ---------------------------------------------------------------------------------------------
+// Subagent context load, from turn.step usage.
+
+/** The token counts one step reported (ModelUsage) and the model that answered. */
+export type StepUsage = {
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+  model: string
+}
+
+/** A loop's context load after a step: everything the request read plus what it wrote. */
+export function contextLoad(u: StepUsage): number {
+  return u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens
+}
+
+/**
+ * Records a subagent's latest step (latest wins). The main loop (no agentId) and steps
+ * with no usage leave the map as it was: the main line has its own figures.
+ */
+export function recordStep(
+  loads: Readonly<Record<string, AgentLoad>>,
+  agentId: string | undefined,
+  usage: StepUsage | null,
+): Record<string, AgentLoad> {
+  if (agentId === undefined || usage === null) return { ...loads }
+  return { ...loads, [agentId]: { tokens: contextLoad(usage), model: usage.model } }
+}
+
+/**
+ * A subagent's load as the footer shows it: used/window when it runs on the main loop's
+ * model (whose window the session reports), the used figure alone otherwise, '' when unknown.
+ */
+export function subagentWeight(load: AgentLoad | undefined, mainModel: string, mainWindow: number | null): string {
+  if (load === undefined) return ''
+  const same = mainModel !== '' && load.model.trim().toLowerCase() === mainModel.trim().toLowerCase()
+  return contextWeight(load.tokens, same && mainWindow !== null ? mainWindow : undefined)
+}
+
+/** Columns the footer box takes around its lines: a border each side and paddingX 1. */
+export const FOOTER_CHROME = 4
+
+/**
+ * The figure a footer line can show in `available` columns: `used/window` when the whole line
+ * (name 10, space, letter, space, figure) fits, else `used` alone. Never cut inside the figure.
+ */
+export function fitWeight(weight: string, available: number): string {
+  if (weight === '' || NAME_WIDTH + 3 + Array.from(weight).length <= available) return weight
+  return weight.split('/')[0] ?? weight
 }
