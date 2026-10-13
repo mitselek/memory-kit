@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- UPGRADE: never squash-merge the PR that brings the kit's subtree into a home; the next
+  `git subtree pull` refuses. Reported by mvox (2026-10-13).
+- The GitHub repo is now a push mirror of Codeberg (sync on every push). Push to Codeberg only;
+  anything pushed straight to GitHub is overwritten.
+
 ## v0.1.0-alpha.4 -- 2026-10-14 -- the lint and the pane find a home from outside it
 
 Reported by the po-team home (Henry), whose lead session runs outside its memory repo.
