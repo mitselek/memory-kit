@@ -483,8 +483,10 @@ export function subagentWeight(load: AgentLoad | undefined, mainModel: string, m
   return contextWeight(load.tokens, same && mainWindow !== null ? mainWindow : undefined)
 }
 
-/** Columns the footer box takes around its lines: a border each side and paddingX 1. */
-export const FOOTER_CHROME = 4
+/** Columns the footer takes around its lines: paddingX 1 each side, as the body rows. */
+export const FOOTER_CHROME = 2
+
+export const RULE_COLOR = '#b8a24a'
 
 /**
  * The figure a footer line can show in `available` columns: `used/window` when the whole line

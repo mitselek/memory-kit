@@ -283,17 +283,22 @@ describe('footer at narrow widths', () => {
       const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns }, plugin: PLUGIN } as never)
       const lines = (await textOf(ui)).filter(t => t.startsWith('kit ') || t.startsWith('coverage'))
       const line = await ui.find({ type: 'Text', text: /^kit / })
+      const rule = await ui.find({ type: 'Text', text: /^─+$/ })
+      const framed = (await ui.findAll({ type: 'Box' })).filter(b => b.props.borderStyle !== undefined)
       await ui.unmount()
-      return { lines, wrap: line?.props.wrap }
+      return { lines, wrap: line?.props.wrap, rule: rule?.text, framed: framed.length }
     }
 
-    // 24 columns: 20 inside the footer, exactly "kit        O 220k/1M".
-    expect((await footerAt(24)).lines).toEqual(['kit        O 220k/1M', 'coverage-… O 285k/1M'])
+    // 22 columns: 20 inside the footer (paddingX 1), exactly "kit        O 220k/1M".
+    expect((await footerAt(22)).lines).toEqual(['kit        O 220k/1M', 'coverage-… O 285k/1M'])
     // One column less: the window goes, the figure stays whole.
-    const narrow = await footerAt(23)
+    const narrow = await footerAt(21)
     expect(narrow.lines).toEqual(['kit        O 220k', 'coverage-… O 285k'])
     expect(narrow.wrap).toBe('wrap')
-    for (const width of [16, 20, 23, 30]) {
+    // One rule across the body, no framed box.
+    expect(narrow.rule).toBe('─'.repeat(21))
+    expect(narrow.framed).toBe(0)
+    for (const width of [14, 18, 21, 22, 30]) {
       for (const line of (await footerAt(width)).lines) expect(line.slice(13)).not.toContain('…')
     }
   })

@@ -22,7 +22,7 @@ plugin API (early access; the API moves between releases).
     terminal; Ghostty clicks it). Links cited only in `check` or `ref` trail the text.
   - A `urls/<name>` with no file, or with an unusable one, is drawn struck through and grey.
   - `check` and `since` are not shown, to keep rows light.
-- **Footer** (sticky): one line for the session's main agent: the name in 10 columns (longer
+- **Footer** (sticky, under one `─` rule across the pane, no frame): one line for the session's main agent: the name in 10 columns (longer
   names get 9 chars + `…`), a colour-coded model letter, and the context weight such as
   `127k/1M`. The letters are F = Fable, O = Opus, S = Sonnet, H = Haiku, and a dim `·` when the model is unknown.
   One more line per live subagent or teammate follows, in the same name and model columns,
@@ -31,7 +31,7 @@ plugin API (early access; the API moves between releases).
   runs on the main loop's model, whose window the session reports, and `84k` alone otherwise:
   windows are never guessed. An agent with no step seen yet shows a dim `·` and no load.
 - **Footer figures are never cut.** The pane knows its width from the harness
-  (`e.props.bodyColumns`). The footer subtracts its border and padding and shows `used/window`
+  (`e.props.bodyColumns`). The footer subtracts its padding (one column each side) and shows `used/window`
   only when the whole line fits, otherwise `used` alone. Its lines wrap rather than truncate, so
   at extreme widths a figure moves to the next row instead of getting an ellipsis.
 - **Scrolling**: the mouse wheel over the pane steps strictly one obligation per event, in the
@@ -70,26 +70,19 @@ read-only for good. Resolving or advancing an obligation happens in the file, by
 
 ## Install
 
-**As a dev mod** (this is how it was tested): link the folder into the session's dev-mods
-folder. Claude Code then asks once whether to enable hot reloading for the session.
+**From the kit** (any home that vendors memory-kit at `memory-kit/`), in a terminal at the
+home's root:
 
 ```sh
-ln -s ~/Documents/3D/workshop/adapters/claude-code/obligations-pane \
-      ~/.claude/dev-mods/<session-id>/obligations-pane
+claude plugin marketplace add ./memory-kit/adapters/claude-code
+claude plugin install obligations-pane@memory-kit
 ```
 
-Or for one session: `claude --plugin-dir ~/Documents/3D/workshop/adapters/claude-code/obligations-pane`.
+The plugin is read from that folder, so a kit upgrade (subtree pull) updates it; run
+`/reload-plugins` in a running session. Optional: `/plugin configure obligations-pane@memory-kit`
+to set the footer's agent name. `/obligations` opens the pane at any width.
 
-**As a kit adapter, later**: Passepartout carries this folder upstream into
-`memory-kit/adapters/claude-code/obligations-pane/`. A home then installs it from the kit with
-`--plugin-dir`, `CLAUDE_CODE_PLUGIN_DIRS`, or a marketplace entry pointing at that folder.
-
-Options (`userConfig`):
-
-- `agentName` is the footer name of the main agent. Left empty, the footer uses the working
-  directory's name.
-- `autoOpen` (default on) opens the pane at session start, but only where an obligations file
-  exists.
+Or for one session only: `claude --plugin-dir ./memory-kit/adapters/claude-code/obligations-pane`.
 
 ## Develop
 
@@ -135,10 +128,9 @@ the Prusa actor gets a palette colour, and the link is dark blue.
  2026-12-31 Prusa (prusa3d/Prus… Explain why the INDX
  start gcode retracts an extra 0.04 mm (asked on their
  settings repo). prusa-start-ooze-issue
-┌──────────────────────────────────────────────────────┐
-│ workshop   O 127k/1M                                 │
-│ obligatio… O running                                 │
-└──────────────────────────────────────────────────────┘
+────────────────────────────────────────────────────────
+ workshop   O 127k/1M
+ obligatio… O
 ```
 
 ## API notes (2.1.296, against the shipped `.d.ts`)

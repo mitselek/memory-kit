@@ -18,6 +18,7 @@ import {
   fitName,
   fitWeight,
   FOOTER_CHROME,
+  RULE_COLOR,
   HEADER_BG,
   HEADER_FG,
   isoDate,
@@ -352,14 +353,19 @@ export const register: Register = (on, options) => {
     }
 
     const footer = (
-      <Box key="footer" flexDirection="column" flexShrink={0} paddingX={1} borderStyle="single" borderColor="#b8a24a">
-        {agentLine('self', snap.self.name, snap.self.model, contextWeight(snap.self.tokens ?? undefined, snap.self.window ?? undefined), false)}
-        {snap.agents.map(a => {
-          const load = agentLoads[a.id]
-          const model = load?.model ?? a.model
-          const weight = subagentWeight(load, mainId !== '' ? mainId : snap.self.model, snap.self.window)
-          return agentLine(`agent-${a.id}`, a.name, model, weight, a.status !== 'running')
-        })}
+      <Box key="footer" flexDirection="column" flexShrink={0}>
+        <Text key="rule" color={RULE_COLOR} wrap="truncate-end">
+          {'─'.repeat(Math.max(0, e.props.bodyColumns))}
+        </Text>
+        <Box key="lines" flexDirection="column" paddingX={1}>
+          {agentLine('self', snap.self.name, snap.self.model, contextWeight(snap.self.tokens ?? undefined, snap.self.window ?? undefined), false)}
+          {snap.agents.map(a => {
+            const load = agentLoads[a.id]
+            const model = load?.model ?? a.model
+            const weight = subagentWeight(load, mainId !== '' ? mainId : snap.self.model, snap.self.window)
+            return agentLine(`agent-${a.id}`, a.name, model, weight, a.status !== 'running')
+          })}
+        </Box>
       </Box>
     )
 
