@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Pane 0.2.1: reads the home the session started in** (#3). A shell `cd` into another repo
+  mid-session used to switch the pane to that repo's ledger. The first `session.start` cwd is
+  kept in `$.state` and survives a mod reload. Built by the workshop's pane agent; 46/46 tests.
 - The kit's own `memory/obligations.yaml` is empty: both rows (expired 05.10 and 10.10) were
   resolved -- obligations shipped as a tier, and the household adopted on 2026-10-13. A home
   vendoring the kit no longer sees them as its own (household findings 14 and 21).
