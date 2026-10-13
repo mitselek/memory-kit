@@ -42,8 +42,16 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
    numbers do not add up, stop.
 4. Work the needs-judgment list with the human, as in adoption Phase 3.
 5. Gate what passes, gauge the rest.
-6. Run a week of real use before deleting anything the migration replaced.
+6. Keep what the migration replaced as a fallback until the events that exercise it have run (a
+   cold start, each scheduled memory routine) -- not a calendar week; then delete.
 7. Report what the migration got wrong or could not do -- upstream, on the kit's tracker.
+
+## Per version
+
+- **0.1.0-alpha.1 -> 0.1.0-alpha.2:** lessons now carry their index fields in front matter. After
+  the pull, run once: `python3 memory-kit/tools/lesson-index.py memory --from-index` (writes front
+  matter from your existing index), then `--check`, then the lint. A home that already keeps its
+  own front matter: compare its keys with `LessonFrontMatter` first.
 
 ## Always
 

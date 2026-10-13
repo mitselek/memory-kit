@@ -93,12 +93,17 @@ each for what would have to change.
 A gate must pass on the tree it is introduced to. A lint that fails on day one teaches the
 home to bypass it, and the kit is finished there.
 
-Keep the home's old tooling running in parallel for at least a week of real use. Only then:
+Then cut over on the home's main line: a home in daily use proves nothing on a branch. Keep the
+old tooling and the converted originals as a fallback -- moved aside, not deleted, with a stated
+way back (one revert) -- until the converted tree has carried the **events that exercise it**: at
+least one cold start that reads the new scratchpad and rules, and one run of every scheduled
+routine that reads or writes memory. A calendar week is only a proxy for those events; name them
+and gate on them instead. Only then:
 
 > **GATE 3 -- deletions.** Old lints and scripts the kit replaces; the files in
 > `03-ruled-dead.md`; the converted originals. Show the list. The human rules.
-> After this the branch may be merged, and `03-ruled-dead.md` deleted with it -- git is the
-> archive from that point on.
+> After this the fallback goes, and `03-ruled-dead.md` with it -- git is the archive from
+> that point on.
 
 ## Phase 6 -- report back.
 

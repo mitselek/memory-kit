@@ -20,4 +20,9 @@ export interface LessonIndexLine {
   trigger?: string;
 }
 
-// Body: When -- Why -- What to do -- What not to do.
+/** The YAML front matter that opens every lesson file: the index line minus `slug` (the slug
+ *  is the file name). The index is generated from it by tools/lesson-index.py; the lint fails
+ *  a lesson with no front matter, or an index row that differs from it. */
+export type LessonFrontMatter = Omit<LessonIndexLine, 'slug'>;
+
+// Body (after the front matter): When -- Why -- What to do -- What not to do.

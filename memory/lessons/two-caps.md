@@ -1,3 +1,9 @@
+---
+summary: A row cap alone displaces growth into longer rows; cap characters too.
+learned: '2026-09-21'
+ref: types/caps.ts
+enforcement: linted
+---
 # Two caps, not one
 
 **When:** proposing a cap, or wondering why a tier caps both rows and characters.

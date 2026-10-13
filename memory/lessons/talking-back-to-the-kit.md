@@ -1,3 +1,9 @@
+---
+summary: What to report upstream after adopting or upgrading, and what stays home.
+learned: '2026-09-21'
+ref: '#1'
+enforcement: recognition
+---
 # Talking back to the kit
 
 **When:** after adopting, after an upgrade, and any time the conventions fought you.

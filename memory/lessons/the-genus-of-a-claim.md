@@ -1,3 +1,9 @@
+---
+summary: Which tier a claim belongs to, decided by how it rots rather than what it is about.
+learned: '2026-09-21'
+ref: types/memory-facts.ts
+enforcement: recognition
+---
 # The genus of a claim
 
 **When:** a claim resists placement, or a tier is filling with things that do not behave like

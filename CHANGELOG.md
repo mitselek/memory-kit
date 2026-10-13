@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## v0.1.0-alpha.2 -- 2026-10-13 -- lessons index generator; event-gated cutover
+
+Proven first in the household (Passepartout, adopted 2026-10-13); answers GitHub #1 (hr2).
+
+- **Lessons carry their index fields in YAML front matter** (`LessonFrontMatter` in
+  `types/memory-lessons.ts`); `tools/lesson-index.py` generates `index.yaml` from it, and
+  `--check` reports a stale index. **Shape change:** a lesson file without front matter now fails.
+- **The lint catches index drift:** it compared only slug sets, so an index whose summaries had
+  drifted from the files passed. It now fails a lesson with no front matter and an index row
+  that differs from it. Fixtures: `invalid/lesson-no-front-matter`, `invalid/lesson-index-stale`;
+  `valid/full`'s lesson gains front matter.
+- **ADOPTION Phase 5:** cut over on the main line once Phase 5 passes, keep the fallback, and
+  gate GATE 3 on named events (a cold start, each scheduled memory routine) instead of a week.
+
 - Ruling 2026-09-23: **long-term knowledge is a deliberate gap the consumer fills.** The kit
   covers operational memory -- what is acted on this session. Articles, research and reference
   material stay outside, because their shape encodes a theory of knowledge management (wiki,

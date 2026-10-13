@@ -267,6 +267,40 @@ def lint_keys(path, caps, f, ref_re):
         f.count("grants")
 
 
+LESSON_FRONT_KEYS = ("summary", "learned", "ref", "enforcement", "trigger")
+
+
+def lesson_front_matter(path):
+    """The index fields a lesson carries in its YAML front matter, or None if it has none."""
+    text = path.read_text()
+    if not text.startswith("---\n"):
+        return None
+    head, sep, _ = text[4:].partition("\n---\n")
+    if not sep:
+        return None
+    try:
+        meta = yaml.safe_load(head)
+    except yaml.YAMLError:
+        return None
+    return meta if isinstance(meta, dict) else None
+
+
+def lesson_drift(body, row, f):
+    # The index is generated from the front matter; any difference means it was hand-edited
+    # or not regenerated -- the rot the generated index exists to prevent.
+    meta = lesson_front_matter(body)
+    if meta is None:
+        f.fail(body, "no front matter; the index fields live there (tools/lesson-index.py)")
+        return
+    extra = sorted(set(meta) - set(LESSON_FRONT_KEYS))
+    if extra:
+        f.fail(body, f"front matter: unknown key(s) {', '.join(extra)}")
+    for k in LESSON_FRONT_KEYS:
+        if str(meta.get(k) or "") != str(row.get(k) or ""):
+            f.fail(body, f"index '{k}' differs from front matter -- regenerate the index")
+            return
+
+
 def lint_lessons(mem, caps, f, ref_re):
     index = mem / "lessons" / "index.yaml"
     if not index.exists():
@@ -298,8 +332,11 @@ def lint_lessons(mem, caps, f, ref_re):
             f.count("lessons nothing fires")
         if slug:
             slugs.add(slug)
-            if not (mem / "lessons" / f"{slug}.md").exists():
+            body = mem / "lessons" / f"{slug}.md"
+            if not body.exists():
                 f.fail(index, f"{where}: no lessons/{slug}.md")
+            else:
+                lesson_drift(body, r, f)
         f.count("lessons indexed")
     on_disk = {p.stem for p in (mem / "lessons").glob("*.md") if p.stem != "README"}
     for missing in sorted(on_disk - slugs):

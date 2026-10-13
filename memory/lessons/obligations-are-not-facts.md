@@ -1,3 +1,9 @@
+---
+summary: Why waiting-on claims need an actor, a check and an expiry instead of a refutation address.
+learned: '2026-09-21'
+ref: '#1'
+enforcement: linted
+---
 # Obligations are not facts
 
 **When:** writing down "waiting on X", "ball with Y", "owed to Z".
