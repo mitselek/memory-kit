@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **First adapter tool: `adapters/claude-code/obligations-pane/`** -- a read-only Claude Code
+  side pane over `memory/obligations.yaml`: due-date order, expired/due-in-7-days counts, stable
+  per-actor colours, `urls/` refs as clickable links, footer with agent names, model letters and
+  context weight; refresh every 20 s. Spec by the PO (Mihkel), built by the workshop home
+  (Paertel), proven there first: validate clean, 30/30 tests. API facts it found are in its README.
+- README: adapters may carry harness-bound tools in `adapters/<harness>/<tool>/`.
+
 ## v0.1.0-alpha.2 -- 2026-10-13 -- lessons index generator; event-gated cutover
 
 Proven first in the household (Passepartout, adopted 2026-10-13); answers GitHub #1 (hr2).
