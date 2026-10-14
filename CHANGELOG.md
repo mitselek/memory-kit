@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Tool: `tools/kit-update.py`** (#15, parts 1-2). A home's `memory-kit.conf` names a channel,
+  `update: pinned` (default), `verified` or `latest`. The tool moves the vendored kit to the newest
+  release that channel allows: it refuses a dirty tree, a home already failing its lint, a new
+  major, and any step whose UPGRADE.md entry is not "no data step". It pulls, runs the lint gate,
+  undoes the pull on failure, commits locally, and **never pushes**. `--dry-run` shows the plan.
+- **Verified markers:** a tag `verified/v<version>` marks a release the household has passed
+  (the kit rule: adopt first, then announce). The first is `verified/v0.1.0-alpha.12`.
+
 - **Lesson: link a ticket with a URL file** (#6, item 1). A Jira key or issue number becomes a
   clickable pane link and a checkable ref by getting its own `urls/<key>` file. Solved by
   convention, not code: the kit stays tracker-neutral (PO, 2026-10-14). The pane README points to it.
