@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.1.0-alpha.13 -- 2026-10-14 -- kit updates: channels, the tool, the plugin
+
+- **New adapter: `adapters/claude-code/kit-update/`, kit-update 0.1.0** (#15 part 3; built by the
+  workshop's agent, 35/35 tests). A third plugin in the `memory-kit` marketplace. Every
+  `checkMinutes` (default 60) it checks upstream for a newer release on the home's channel and
+  prompts the session once per release, across all the home's sessions (a `$.store` claim, proven
+  live with two sessions). A release with a data step or a new major gets "manual upgrade needed".
+  The prompt defers to the home's UPGRADE.md and push rules and authorizes nothing. It never runs
+  git and writes no files. `/kit-update` shows the channel, versions, last check and prompt state.
 - **Tool: `tools/kit-update.py`** (#15, parts 1-2). A home's `memory-kit.conf` names a channel,
   `update: pinned` (default), `verified` or `latest`. The tool moves the vendored kit to the newest
   release that channel allows: it refuses a dirty tree, a home already failing its lint, a new
