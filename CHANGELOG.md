@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
+
+Plugin versions this release: watch 0.3.0, obligations-pane 0.4.0, kit-update 0.2.0.
+The kit_home pointer was checked live before release: a pointer-only start folder, the watch
+draining through it in under 5 s, the pane showing the pointed home's VERSION and rows, and a
+bad source format or obligations key reported in-session, never swallowed.
+
+Known trap, found in that live test: **two enabled plugins with the same name (e.g. a released
+and a branch copy from differently named marketplaces) collide silently** -- only the user-scope
+copy's mods run. Disable one copy before testing the other.
 
 - **`kit_home:` in memory-kit.conf names the kit home** (#18, from the pepys desk).
   - A folder that is not the home holds a pointer conf, `kit_home: ../desk` (absolute, or relative
