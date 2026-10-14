@@ -21,6 +21,41 @@
     session on the machine. A broken pointer is visible in each: a notice (watch, kit-update),
     the pane's body (pane). A pointed home without VERSION shows `memory-kit ?` (pane), or is a
     notice (kit-update). Keys left in a pointer conf that a plugin reads are reported as ignored.
+- **The watch delivers one prompt per poll** (#17, context load). Every delivered prompt is a
+  turn carrying the session's whole context, so a burst of N items used to cost N full turns.
+  What one poll drained now goes as one prompt: a single item as before, several one per line
+  under `[watch] N items, oldest first:`, at most 20 to a prompt. Custody is unchanged: the batch
+  leaves its pending files only once the submit was accepted; a refusal keeps it whole; a crash
+  can repeat one batch, never lose one. The README now states the cost of every delivered
+  prompt plainly.
+- **One drain per home** (#17, FR's warning). Two guards:
+  - The `home` option counts only for a session started inside that home. It applies to every
+    session on the machine, so it no longer makes them all drain one home's sources. A session
+    outside the home gets one notice naming the `kit_home` pointer. Behaviour change: a home
+    watched from another folder through the option alone now needs the pointer.
+  - One session per home through a `$.store` claim (`drain:<home>`), as kit-update claims a
+    release. The claim is read back at once (the last writer wins), refreshed every poll tick
+    (also while a delivery waits for a busy turn), let go at `session.end`, and taken over when
+    60 s stale. Other sessions in the home deliver nothing from it and get one notice naming the
+    holder. `/watch` says who drains.
+  - Checked live: the store is shared across processes, and the takeover works when the holder
+    exits.
+- **A remote hub feeds the watch through a peek-only spool poller** (#16, the fleet's Lelle
+  pattern). New `adapters/claude-code/watch/spool/spool-poll.py` (stdlib only), generic over the
+  command:
+  - It runs a peek-only command every 30 s and appends one line per new item to a spool, which
+    the home declares as a `lines` source. The command is e.g. `evr-mail recv --peek`; items are
+    matched by a regex with a named `id` group, and the line is written from a template.
+  - It keeps a seen-id set (the last 500), and writes one `health:` line after 3 failures in a row,
+    then at most one per 30 min, then `health: recovered`.
+  - One poller per spool, through a lock beside it (the `flock` lock).
+  - `--keep-alive` is for a SessionStart hook: it starts one detached poller unless one runs, and
+    returns at once. It needs no `flock`/`setsid` commands; the Windows path is untested.
+  - The README documents the pattern, the hook, and that custody stays with the session's own
+    `recv`.
+  - Tests: `spool-poll-test.py` (unittest, no network; it starts a real detached poller with a
+    fake peek and stops it again). Checked live: the SessionStart hook fired, one poller ran for
+    two sessions and outlived the first, and three mails arrived as one prompt.
 
 Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
 

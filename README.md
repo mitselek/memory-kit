@@ -249,7 +249,7 @@ memory/            the kit's own memory, shipped with it: kit facts, the 8 core 
 fixtures/          valid/ and invalid/ samples per tier -- the contract
 lint/              reference lint (python3 + PyYAML), --gate | --report; run-fixtures.sh
 skeleton/          the empty home a fresh consumer starts from (secrets README included)
-adapters/          harness-bound tools, e.g. adapters/claude-code/obligations-pane/
+adapters/          harness-bound tools: adapters/claude-code/ obligations-pane, watch (+ spool/spool-poll.py), kit-update
 GOVERNANCE.md
 VERSION            pinned by consumers
 CHANGELOG.md
