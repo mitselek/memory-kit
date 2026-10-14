@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## v0.1.0-alpha.6 -- 2026-10-14 -- the pane knows its kit; docs keep their promises
+
+- **Pane 0.3.0** (built by the workshop's pane agent; 81/81 tests):
+  - reads obligations files the way `yaml.safe_dump` writes them: list items at column 0, wrapped
+    long values, YAML escapes, `null`/`~` as empty (#5). Tested against real PyYAML output.
+  - the header shows the home's kit version instead of the date and time (#4).
+  - checks upstream for a newer release at most every 6 h and says "· alpha.N out" in the header
+    (#7). Anonymous Codeberg tags API, cached across sessions in `$.store`, 10 s time limit, never
+    blocks a hook, never pulls. Off with the new `checkUpdates` option; another upstream with
+    `upstream: <owner>/<repo>` (Codeberg) in `memory-kit.conf`.
+  - Windows absolute paths (`C:\`, `C:/`, UNC) in `memoryDir` or `memory_dir` are no longer
+    joined to the working folder (#8). Unverified on real Windows: a Windows home should check it.
 - **Docs: the obligations tier is in the core docs** (#2). README D6 and the ADOPTION Phase 1 tier
   list name it; Phase 3's genus test routes waiting-on items to `obligations.yaml`, no longer to
   the scratchpad (which the kit's own lesson forbids), and says `expires` is when you run the
