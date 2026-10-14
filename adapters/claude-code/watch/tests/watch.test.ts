@@ -7,7 +7,9 @@ import {
   backoffMs,
   brake,
   confValue,
+  COURIER_GRACE_MS,
   decideRetire,
+  entryKey,
   EVENT_LIMIT,
   expandHome,
   fileOpArgv,
@@ -28,7 +30,9 @@ import {
   psQuote,
   retirePrompt,
   sourcesOf,
+  STALE_LOCK_MS,
   SURVIVE_MS,
+  takes,
 } from '../hooks/watch'
 import type { RetireInput } from '../hooks/watch'
 
@@ -328,5 +332,67 @@ describe('platform: the four file operations (kit alpha.9)', () => {
   test('glob segments split on either separator, a drive kept whole', () => {
     expect(pathSegments('/home/u/.claude/teams/session-*/inboxes/a.json')).toEqual(['', 'home', 'u', '.claude', 'teams', 'session-*', 'inboxes', 'a.json'])
     expect(pathSegments('C:\\Users\\m\\.claude\\teams\\session-*\\inboxes\\a.json')).toEqual(['C:', 'Users', 'm', '.claude', 'teams', 'session-*', 'inboxes', 'a.json'])
+  })
+})
+
+describe('a shared inbox: take only courier mail, unread (kit #12)', () => {
+  test('modifiers after the hub format: unread, courier, both', () => {
+    expect(parseSource('hub mail | hub unread courier | ~/.claude/teams/session-*/inboxes/team-lead.json')).toEqual({
+      prefix: 'hub mail',
+      format: 'hub',
+      path: '~/.claude/teams/session-*/inboxes/team-lead.json',
+      take: { unread: true, courier: true },
+    })
+    expect(parseSource('h | hub courier | a.json')).toEqual({ prefix: 'h', format: 'hub', path: 'a.json', take: { unread: false, courier: true } })
+    expect(parseSource('h | hub  unread | a.json')).toEqual({ prefix: 'h', format: 'hub', path: 'a.json', take: { unread: true, courier: false } })
+    // A plain hub source drains the whole file, as before.
+    expect(parseSource('h | hub | a.json')).toEqual({ prefix: 'h', format: 'hub', path: 'a.json' })
+    expect(parseSource('h | hub unread unread | a.json')).toMatch(/twice/)
+    expect(parseSource('h | hub everything | a.json')).toMatch(/unknown/)
+    expect(parseSource('h | lines courier | a.txt')).toMatch(/only to a hub/)
+  })
+
+  test('which entries a source takes', () => {
+    const entries = [
+      { from: 'mate', text: 'teammate, delivered', read: true },
+      { from: 'mate', text: 'teammate, not yet delivered', read: false },
+      { from: 'hub-courier', text: 'hub mail', read: false },
+      { from: 'company-courier', text: 'hub mail, no read field' },
+      { from: 'hub-courier', text: 'hub mail the harness delivered', read: true },
+      { from: 'courier', text: 'not a -courier suffix' },
+      'not an object',
+    ]
+    expect(entries.map(e => takes({ unread: true, courier: true }, e))).toEqual([false, false, true, true, false, false, false])
+    expect(entries.map(e => takes({ unread: false, courier: true }, e))).toEqual([false, false, true, true, true, false, false])
+    expect(entries.map(e => takes({ unread: true, courier: false }, e))).toEqual([false, true, true, true, false, true, false])
+  })
+
+  test('an entry is known by its msg_id, else by its content', () => {
+    expect(entryKey({ msg_id: 'm1', text: 'a' })).toBe('id:m1')
+    expect(entryKey({ from: 'hub-courier', text: 'a', timestamp: 't' })).toBe(entryKey({ from: 'hub-courier', text: 'a', timestamp: 't' }))
+    expect(entryKey({ from: 'hub-courier', text: 'a', timestamp: 't' })).not.toBe(entryKey({ from: 'hub-courier', text: 'b', timestamp: 't' }))
+  })
+
+  test('the harness gets 30 s to take courier mail itself; a lock older than 60 s is stale', () => {
+    expect(COURIER_GRACE_MS).toBe(30_000)
+    expect(STALE_LOCK_MS).toBe(60_000)
+  })
+
+  test("the harness's lock: mkdir / rmdir; on Windows New-Item / Remove-Item", () => {
+    const lock = '/c/My Inbox [x]/team-lead.json.lock'
+    expect(fileOpArgv('posix', { op: 'lock', path: lock })).toEqual(['mkdir', '--', lock])
+    expect(fileOpArgv('posix', { op: 'unlock', path: lock })).toEqual(['rmdir', '--', lock])
+    const decode = (argv: string[]) => {
+      const bin = atob(argv[argv.length - 1] ?? '')
+      let out = ''
+      for (let i = 0; i + 1 < bin.length; i += 2) out += String.fromCharCode(bin.charCodeAt(i) | (bin.charCodeAt(i + 1) << 8))
+      return out
+    }
+    expect(decode(fileOpArgv('windows', { op: 'lock', path: lock }))).toBe(
+      `$ErrorActionPreference = 'Stop'; New-Item -ItemType Directory -Path ${psQuote(lock)} | Out-Null`,
+    )
+    expect(decode(fileOpArgv('windows', { op: 'unlock', path: lock }))).toBe(
+      `$ErrorActionPreference = 'Stop'; Remove-Item -LiteralPath ${psQuote(lock)} -Force`,
+    )
   })
 })

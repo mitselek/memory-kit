@@ -34,6 +34,8 @@ export type World = {
   commands: string[][]
   /** The host: POSIX answers uname and runs mv/rm; Windows has only powershell.exe. */
   platform: 'posix' | 'windows'
+  /** Lock directories (`<inbox>.lock`, the harness's), with their mtime. */
+  locks: Map<string, number>
 }
 
 const abs = (path: string) => (path.startsWith('/') ? path : `${CWD}/${path}`)
@@ -70,12 +72,20 @@ export function worldOf(
     logs: [],
     commands: [],
     platform,
+    locks: new Map(),
   }
   mock.store(on, store)
   mock.env(on, env)
-  const isDir = (path: string) => [...world.files.keys()].some(f => f.startsWith(`${path}/`))
+  const isDir = (path: string) => world.locks.has(path) || [...world.files.keys(), ...world.locks.keys()].some(f => f.startsWith(`${path}/`))
 
   on('fs.exists', ($, e) => ({ value: world.files.has(abs(e.path)) || isDir(abs(e.path)) }))
+  on('fs.stat', ($, e) => {
+    const path = abs(e.path)
+    const lock = world.locks.get(path)
+    if (lock !== undefined) return { value: { kind: 'dir', size: 0, mtimeMs: lock, isLink: false } as never }
+    if (world.files.has(path)) return { value: { kind: 'file', size: 0, mtimeMs: 0, isLink: false } as never }
+    return isDir(path) ? { value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } as never } : { deny: `ENOENT: ${e.path}` }
+  })
   on('fs.read', ($, e) => {
     const text = world.files.get(abs(e.path))
     return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text }
@@ -93,9 +103,9 @@ export function worldOf(
       const [name, ...rest] = f.slice(dir.length + 1).split('/')
       if (name !== undefined) names.set(name, rest.length > 0 ? 'dir' : 'file')
     }
+    for (const l of world.locks.keys()) if (l.startsWith(`${dir}/`) && !l.slice(dir.length + 1).includes('/')) names.set(l.slice(dir.length + 1), 'dir')
     return { value: [...names].map(([name, kind]) => ({ name, kind, size: 0, mtimeMs: 0, isLink: false })) as never }
   })
-  // The host's mv (rename; -n keeps an existing target) and rm -f, over the in-memory files.
   // The host beneath: POSIX (uname answers; mv, rm) or Windows (no uname; powershell.exe with an
   // -EncodedCommand of Move-Item / Remove-Item), over the in-memory files.
   on('process.run', ($, e) => {
@@ -114,6 +124,12 @@ export function worldOf(
       world.files.set(abs(to), text)
       return { value: ok }
     }
+    const mkdir = (path: string) => {
+      if (world.locks.has(abs(path)) || world.files.has(abs(path))) return fail(`'${path}' exists`)
+      world.locks.set(abs(path), 0)
+      return { value: ok }
+    }
+    const rmdir = (path: string) => (world.locks.delete(abs(path)) ? { value: ok } : fail(`no directory '${path}'`))
     if (world.platform === 'windows') {
       if (argv[0] !== 'powershell.exe') return { deny: `ENOENT: ${argv[0]}` }
       const script = decodeUtf16le(argv[argv.length - 1] ?? '')
@@ -121,6 +137,10 @@ export function worldOf(
       const un = (q: string | undefined) => (q ?? '').replaceAll("''", "'")
       const mv = new RegExp(`Move-Item -LiteralPath ${lit} -Destination ${lit}( -Force)?$`).exec(script)
       if (mv) return move(un(mv[1]), un(mv[2]), mv[3] === undefined ? 'no' : 'yes')
+      const md = new RegExp(`New-Item -ItemType Directory -Path ${lit} \\| Out-Null$`).exec(script)
+      if (md) return mkdir(un(md[1]))
+      const rd = new RegExp(`Remove-Item -LiteralPath ${lit} -Force$`).exec(script)
+      if (rd) return rmdir(un(rd[1]))
       const rm = new RegExp(`Remove-Item -LiteralPath ${lit} -Force -ErrorAction SilentlyContinue$`).exec(script)
       if (rm) {
         world.files.delete(abs(un(rm[1])))
@@ -129,6 +149,8 @@ export function worldOf(
       return fail(`not mocked: ${script}`)
     }
     const paths = argv.filter(a => !a.startsWith('-'))
+    if (argv[0] === 'mkdir') return mkdir(paths[1] ?? '')
+    if (argv[0] === 'rmdir') return rmdir(paths[1] ?? '')
     if (argv[0] === 'uname') return { value: { ...ok, stdout: 'Linux\n' } }
     if (argv[0] === 'mv') {
       const [, from, to] = paths

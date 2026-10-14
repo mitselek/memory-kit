@@ -14,19 +14,61 @@ import type { PromptOrigin } from 'claude-code'
 
 export type Format = 'hub' | 'lines'
 
-/** One declared source: the prefix each item arrives under, its format, its file, its archive. */
-export type Source = { prefix: string; format: Format; path: string; archive?: string }
+/**
+ * Which entries of a shared hub inbox a source takes (kit #12): `unread` skips `read: true`,
+ * `courier` takes only entries whose `from` ends in `-courier`. A source with either is shared:
+ * the file is the harness's own teammate inbox, so only the taken entries leave it.
+ */
+export type Take = { unread: boolean; courier: boolean }
 
-/** Parses `prefix | format | path [| archive]`; a string says what is wrong. */
+/** One declared source: the prefix each item arrives under, its format, its file, its archive. */
+export type Source = { prefix: string; format: Format; path: string; archive?: string; take?: Take }
+
+/** Parses `prefix | format [modifiers] | path [| archive]`; a string says what is wrong. */
 export function parseSource(spec: string): Source | string {
   const parts = spec.split('|').map(p => p.trim())
   if (parts.length < 3 || parts.length > 4) return `expected "prefix | format | path [| archive]": ${spec}`
-  const [prefix = '', format = '', path = '', archive] = parts
+  const [prefix = '', formatField = '', path = '', archive] = parts
+  const [format = '', ...modifiers] = formatField.split(/\s+/)
   if (prefix === '') return `empty prefix: ${spec}`
   if (format !== 'hub' && format !== 'lines') return `unknown format "${format}" (hub or lines): ${spec}`
   if (path === '') return `empty path: ${spec}`
-  return archive === undefined || archive === '' ? { prefix, format, path } : { prefix, format, path, archive }
+  const source: Source = archive === undefined || archive === '' ? { prefix, format, path } : { prefix, format, path, archive }
+  if (modifiers.length === 0) return source
+  if (format !== 'hub') return `modifiers apply only to a hub format: ${spec}`
+  const take: Take = { unread: false, courier: false }
+  for (const m of modifiers) {
+    if (m !== 'unread' && m !== 'courier') return `unknown modifier "${m}" (unread or courier): ${spec}`
+    if (take[m]) return `modifier "${m}" given twice: ${spec}`
+    take[m] = true
+  }
+  return { ...source, take }
 }
+
+/** Whether a shared source takes this inbox entry. */
+export function takes(take: Take, entry: unknown): boolean {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return false
+  const e = entry as Record<string, unknown>
+  if (take.unread && e.read === true) return false
+  if (take.courier && !(typeof e.from === 'string' && e.from.endsWith('-courier'))) return false
+  return true
+}
+
+/** How an inbox entry is known across polls: its msg_id, else its whole content. */
+export function entryKey(entry: unknown): string {
+  const id = (entry as { msg_id?: unknown } | null)?.msg_id
+  return typeof id === 'string' && id !== '' ? `id:${id}` : `json:${JSON.stringify(entry)}`
+}
+
+/**
+ * Courier mail stays this long in a shared inbox before the watch takes it: while the harness's
+ * team is live it delivers (and removes) inbox entries itself within about a second (live check,
+ * 2026-10-14), so the watch only takes what the harness is not picking up.
+ */
+export const COURIER_GRACE_MS = 30_000
+
+/** The harness's lock (`<inbox>.lock`, a directory) is stale past this age, and broken. */
+export const STALE_LOCK_MS = 60_000
 
 /** Strips a trailing ` # comment` and one pair of enclosing quotes. */
 function unquote(raw: string): string {
@@ -275,10 +317,10 @@ export function retirePrompt(retireStep: string, idleMinutes: number, grownPerce
 
 export type Platform = 'posix' | 'windows'
 
-/** The four operations: rename, rename only where nothing is (put-back), rename over, delete. */
+/** The operations: rename, rename only where nothing is (put-back), rename over, delete, and take / release a lock directory. */
 export type FileOp =
   | { op: 'move' | 'move-keep' | 'move-replace'; from: string; to: string }
-  | { op: 'remove'; path: string }
+  | { op: 'remove' | 'lock' | 'unlock'; path: string }
 
 /** Run where the home does not say: success means POSIX (macOS's BSD mv has no --version). */
 export const PROBE_ARGV = ['uname', '-s'] as const
@@ -320,15 +362,26 @@ export function base64Utf16le(text: string): string {
  * `[ ]` in a path are not wildcards; a failure stops the script with exit code 1.
  */
 export function fileOpArgv(platform: Platform, f: FileOp): string[] {
+  if ('path' in f) {
+    if (platform === 'posix') return f.op === 'remove' ? ['rm', '-f', '--', f.path] : [f.op === 'lock' ? 'mkdir' : 'rmdir', '--', f.path]
+    const path = psQuote(f.path)
+    return powershell(
+      f.op === 'remove'
+        ? `Remove-Item -LiteralPath ${path} -Force -ErrorAction SilentlyContinue`
+        : f.op === 'lock'
+          ? // New-Item has no -LiteralPath; it fails when the directory exists, which the lock needs.
+            `New-Item -ItemType Directory -Path ${path} | Out-Null`
+          : `Remove-Item -LiteralPath ${path} -Force`,
+    )
+  }
   if (platform === 'posix') {
-    if (f.op === 'remove') return ['rm', '-f', '--', f.path]
     const flag = f.op === 'move-keep' ? ['-n'] : f.op === 'move-replace' ? ['-f'] : []
     return ['mv', ...flag, '--', f.from, f.to]
   }
-  const command =
-    f.op === 'remove'
-      ? `Remove-Item -LiteralPath ${psQuote(f.path)} -Force -ErrorAction SilentlyContinue`
-      : `Move-Item -LiteralPath ${psQuote(f.from)} -Destination ${psQuote(f.to)}${f.op === 'move-replace' ? ' -Force' : ''}`
+  return powershell(`Move-Item -LiteralPath ${psQuote(f.from)} -Destination ${psQuote(f.to)}${f.op === 'move-replace' ? ' -Force' : ''}`)
+}
+
+function powershell(command: string): string[] {
   const script = `$ErrorActionPreference = 'Stop'; ${command}`
   return ['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', base64Utf16le(script)]
 }

@@ -219,6 +219,115 @@ describe('notifications: drain and deliver', () => {
   })
 })
 
+describe('a shared harness inbox: only courier mail, only unread (kit #12)', () => {
+  const TEAM = `${HOME}/.claude/teams/session-ab12/inboxes`
+  const INBOX = `${TEAM}/team-lead.json`
+  const SHARED = 'watch_sources:\n  - "hub mail | hub unread courier | ~/.claude/teams/session-*/inboxes/team-lead.json | ~/comms/archive/{name}-archive.json"\n'
+  const teammateRead = { from: 'mate', text: 'already delivered by the harness', timestamp: 't1', read: true, msg_id: 'm1' }
+  const teammateUnread = { from: 'mate', text: 'for the harness to deliver', timestamp: 't2', read: false, msg_id: 'm2' }
+  const courier = { from: 'hub-courier', text: 'eight hours of hub mail', timestamp: 't3', read: false }
+  const inbox = (world: World) => JSON.parse(world.files.get(INBOX) ?? 'null') as unknown
+  /** Start, then let the harness's 30 s grace pass with polls running. */
+  const pastGrace = async ($: Engine, clock: { advance: (ms: number) => Promise<void> }) => {
+    await $.session.start(SESSION)
+    await clock.advance(35_000)
+  }
+
+  test('a read teammate entry and a courier entry: only the courier entry is delivered; the teammate one stays in place', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([teammateRead, courier]) })
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toEqual(['[hub mail] from hub-courier [t3]: eight hours of hub mail'])
+    expect(inbox(world)).toEqual([teammateRead])
+    expect(JSON.parse(world.files.get(`${HOME}/comms/archive/team-lead-archive.json`) ?? '')).toEqual([courier])
+    // Taken under the harness's own lock, released after.
+    expect(world.commands.some(c => c[0] === 'mkdir' && c[2] === `${INBOX}.lock`)).toBe(true)
+    expect(world.locks.size).toBe(0)
+  })
+
+  test('courier mail already marked read (delivered by the harness) is not delivered again', async ($, on) => {
+    const delivered = { ...courier, text: 'the harness delivered this one', read: true }
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([delivered, courier]) })
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toEqual(['[hub mail] from hub-courier [t3]: eight hours of hub mail'])
+    expect(inbox(world)).toEqual([delivered])
+  })
+
+  test('teammate entries only: the file is left untouched, no lock taken', async ($, on) => {
+    const text = JSON.stringify([teammateRead, teammateUnread])
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: text })
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toEqual([])
+    expect(world.files.get(INBOX)).toBe(text)
+    expect(world.commands.filter(c => c[0] !== 'uname')).toEqual([])
+  })
+
+  test('an unread teammate entry beside courier mail is left, unread, for the harness', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([teammateUnread, courier]) })
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toEqual(['[hub mail] from hub-courier [t3]: eight hours of hub mail'])
+    expect(inbox(world)).toEqual([teammateUnread])
+  })
+
+  test('courier mail the harness takes within its grace is never delivered by the watch', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([courier]) })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(20_000)
+    expect(world.submitted).toEqual([])
+    // The harness delivers it and empties its inbox, as it does when its team is live.
+    world.files.set(INBOX, '[]')
+    await clock.advance(60_000)
+    expect(world.submitted).toEqual([])
+    expect(world.files.get(INBOX)).toBe('[]')
+  })
+
+  test('while the harness holds its lock, nothing is taken; once it lets go, the mail is', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([courier]) })
+    world.locks.set(`${INBOX}.lock`, NOW + 30_000)
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toEqual([])
+    expect(world.files.get(INBOX)).toBe(JSON.stringify([courier]))
+    world.locks.delete(`${INBOX}.lock`)
+    await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(1)
+    expect(inbox(world)).toEqual([])
+  })
+
+  test('a lock left more than 60 s is stale: broken once, then the mail is taken', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([courier]) })
+    world.locks.set(`${INBOX}.lock`, NOW - 90_000)
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toHaveLength(1)
+    expect(world.locks.size).toBe(0)
+    expect(world.logs.filter(l => l.includes('stale lock'))).toHaveLength(1)
+  })
+
+  test('a shared aside left unreadable by a crash is never put back over the harness inbox', async ($, on) => {
+    const aside = `${TEAM}/.watch-drain-team-lead.json-1-2`
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [aside]: '[{"from": "hub-cour' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.files.has(INBOX)).toBe(false)
+    expect(world.files.get(aside)).toBe('[{"from": "hub-cour')
+  })
+
+  test('on Windows the same, through New-Item / Remove-Item for the lock', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': SHARED, [INBOX]: JSON.stringify([teammateRead, courier]) }, {}, { HOME }, 'windows')
+    const clock = mock.clock(on, { now: NOW })
+    await pastGrace($, clock)
+    expect(world.submitted).toEqual(['[hub mail] from hub-courier [t3]: eight hours of hub mail'])
+    expect(inbox(world)).toEqual([teammateRead])
+    expect(world.locks.size).toBe(0)
+  })
+})
+
 describe('Windows (kit alpha.9)', () => {
   const scripts = (world: World) =>
     world.commands.filter(c => c[0] === 'powershell.exe').map(c => decodeUtf16le(c[c.length - 1] ?? '').replace(/^.*?; /, ''))

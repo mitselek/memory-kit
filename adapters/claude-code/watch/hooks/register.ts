@@ -13,7 +13,9 @@ import {
   backoffMs,
   brake,
   confValue,
+  COURIER_GRACE_MS,
   decideRetire,
+  entryKey,
   expandHome,
   fileOpArgv,
   formatEvent,
@@ -33,8 +35,10 @@ import {
   recentAsks,
   retirePrompt,
   sourcesOf,
+  STALE_LOCK_MS,
+  takes,
 } from './watch'
-import type { FileOp, Item, Platform, Source } from './watch'
+import type { FileOp, Item, Platform, Source, Take } from './watch'
 
 const startCwd = atom({ plugin: 'watch', key: 'startCwd' } as const, '')
 const askedAt = atom({ plugin: 'watch', key: 'askedAt' } as const, 0)
@@ -126,9 +130,9 @@ async function platformOf($: EngineInterface): Promise<Platform> {
   return found
 }
 
-/** One rename or delete on the host; false (one debug line per distinct failure) when it failed. */
+/** One rename, delete or lock operation on the host; false (one debug line per distinct failure) when it failed. */
 async function fileOp($: EngineInterface, f: FileOp): Promise<boolean> {
-  const what = f.op === 'remove' ? `remove ${f.path}` : `${f.op} ${f.from} -> ${f.to}`
+  const what = 'path' in f ? `${f.op} ${f.path}` : `${f.op} ${f.from} -> ${f.to}`
   try {
     const { exitCode, stderr } = await $.process.run(fileOpArgv(await platformOf($), f), { timeoutMs: 30_000 })
     if (exitCode !== 0) logOnce($, `${what} failed: ${stderr.trim()}`)
@@ -183,6 +187,11 @@ async function drainAside($: EngineInterface, source: Source, file: string, asid
   const text = await readOrEmpty($, aside)
   const items = itemsOf(source.format, text)
   if (items === undefined) {
+    if (source.take !== undefined) {
+      // A shared inbox is the harness's: nothing of ours is ever put back into it.
+      logOnce($, `${aside}: not a hub inbox; left aside`)
+      return
+    }
     // Put back only where nothing new has arrived (mv -n); otherwise it stays aside, not lost.
     await fileOp($, { op: 'move-keep', from: aside, to: file })
     logOnce($, `${aside}: not a hub inbox; put back where ${file} was free, else left aside`)
@@ -211,6 +220,10 @@ async function besideOf($: EngineInterface, file: string, match: (file: string, 
 /** Drains one file: asides a crash left behind first, then the file itself, renamed aside before it is read. */
 async function drainFile($: EngineInterface, source: Source, file: string, archivePath: string): Promise<void> {
   for (const aside of await besideOf($, file, isAsideOf)) await drainAside($, source, file, aside, archivePath)
+  if (source.take !== undefined) {
+    await drainShared($, source, source.take, file, archivePath)
+    return
+  }
 
   const text = await readOrEmpty($, file)
   const items = itemsOf(source.format, text)
@@ -221,6 +234,83 @@ async function drainFile($: EngineInterface, source: Source, file: string, archi
   if (items.length === 0) return
   const aside = asideOf(file, await $.clock.now(), ++nonce)
   if (!(await fileOp($, { op: 'move', from: file, to: aside }))) return
+  await drainAside($, source, file, aside, archivePath)
+}
+
+/** When each takeable entry of a shared inbox was first seen, by `<file>\n<entry key>`. */
+const firstSeen = new Map<string, number>()
+
+/**
+ * Takes the harness's lock on a shared inbox (`<inbox>.lock`, a directory, as the harness itself
+ * takes it). A lock older than STALE_LOCK_MS is broken first. False: someone holds it.
+ */
+async function lock($: EngineInterface, path: string, now: number): Promise<boolean> {
+  if (await $.fs.exists(path)) {
+    let mtime = now
+    try {
+      mtime = (await $.fs.stat(path)).mtimeMs
+    } catch {
+      return false
+    }
+    if (now - mtime <= STALE_LOCK_MS) return false
+    logOnce($, `${path}: stale lock (older than ${STALE_LOCK_MS / 1000} s), broken`)
+    if (!(await fileOp($, { op: 'unlock', path }))) return false
+  }
+  return fileOp($, { op: 'lock', path })
+}
+
+/**
+ * A shared inbox (kit #12): the harness's own teammate inbox, which the courier also writes. Only
+ * the entries the source takes leave it, after COURIER_GRACE_MS (the harness delivers them itself
+ * while its team is live). Under the harness's lock: re-read, write the taken entries to an aside
+ * (temp + rename), then the rest back in place (temp + rename, as the harness writes), unlock.
+ * Everything else stays, in order and unchanged. The courier writes only into an empty inbox, and
+ * the watch writes only when it takes something, so it never meets the courier mid-write.
+ */
+async function drainShared($: EngineInterface, source: Source, take: Take, file: string, archivePath: string): Promise<void> {
+  const text = await readOrEmpty($, file)
+  if (text.trim() === '') return
+  const parse = (t: string): unknown[] | undefined => {
+    try {
+      const data: unknown = JSON.parse(t)
+      return Array.isArray(data) ? data : undefined
+    } catch {
+      return undefined
+    }
+  }
+  const seen = parse(text)
+  if (seen === undefined) {
+    logOnce($, `${file}: not a hub inbox; left in place`)
+    return
+  }
+  const now = await $.clock.now()
+  const keys = new Set(seen.filter(e => takes(take, e)).map(e => `${file}\n${entryKey(e)}`))
+  for (const k of [...firstSeen.keys()]) if (k.startsWith(`${file}\n`) && !keys.has(k)) firstSeen.delete(k)
+  for (const k of keys) if (!firstSeen.has(k)) firstSeen.set(k, now)
+  const ready = new Set([...keys].filter(k => now - (firstSeen.get(k) ?? now) >= COURIER_GRACE_MS))
+  if (ready.size === 0) return
+
+  const lockPath = `${file}.lock`
+  if (!(await lock($, lockPath, now))) return
+  let aside: string | undefined
+  try {
+    const entries = parse(await readOrEmpty($, file))
+    if (entries === undefined) return
+    const isTaken = (e: unknown) => takes(take, e) && ready.has(`${file}\n${entryKey(e)}`)
+    const taken = entries.filter(isTaken)
+    if (taken.length === 0) return
+    const candidate = asideOf(file, now, ++nonce)
+    if (!(await replace($, candidate, `${JSON.stringify(taken, null, 2)}\n`))) return
+    if (!(await replace($, file, JSON.stringify(entries.filter(e => !isTaken(e)), null, 2)))) {
+      // The inbox still holds them: drop our copy rather than deliver twice.
+      await fileOp($, { op: 'remove', path: candidate })
+      return
+    }
+    for (const e of taken) firstSeen.delete(`${file}\n${entryKey(e)}`)
+    aside = candidate
+  } finally {
+    await fileOp($, { op: 'unlock', path: lockPath })
+  }
   await drainAside($, source, file, aside, archivePath)
 }
 
