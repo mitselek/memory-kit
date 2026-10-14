@@ -5,7 +5,7 @@ from the obligations pane, which stays read-only. A home can take either one wit
 Built against Claude Code 2.1.296's plugin API and checked live on 2.1.299 (early access; the API
 moves between releases).
 
-It has two jobs, both on one timer (`pollSeconds`, default 15):
+It has two jobs, both on one timer (`pollSeconds`, default 5):
 
 1. **Idle-safe notifications.** It drains the sources the home declares and delivers each item
    with `$.prompt.submit`. The prompt queues until the session is idle and then starts a turn of
@@ -114,7 +114,10 @@ bell), it also goes to the transcript as a dim line.
 
 - `home`: the kit home whose `memory-kit.conf` declares the sources. Empty: the session's start
   directory.
-- `pollSeconds` (15, at least 5): the drain and idle-check interval. It reads local files only.
+- `pollSeconds` (5, at least 5): the drain and idle-check interval. It reads local files only.
+  For a `hub` source keep it at 5: the hub courier waits only about 10 s for an occupied inbox
+  (50 rounds of 0.2 s), so a slower poll makes a burst bounce and arrive late and out of order
+  (kit #10; the household flood test, 14.10).
 - `retireOnIdle` (off), `idleMinutes` (50), `growthPercent` (50): see above.
 
 ## Live findings (2026-10-14, Claude Code 2.1.299, throwaway tmux sessions)

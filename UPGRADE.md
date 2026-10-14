@@ -89,6 +89,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   two drains would both rename the file aside and rewrite the same archive. Keep `retireOnIdle`
   off until the notifications have run a while in your home.
 
+- **0.1.0-alpha.7 -> 0.1.0-alpha.8:** no data step. Pull, run the lint, `/reload-plugins`. A home
+  that installed the watch at alpha.7 and set no `pollSeconds` now polls every 5 s; one that set
+  15 should set 5 (`claude plugin configure watch@memory-kit --values-stdin`).
+
 ## Always
 
 - The home's config for the kit lives outside the subtree; a pull must never clobber it.

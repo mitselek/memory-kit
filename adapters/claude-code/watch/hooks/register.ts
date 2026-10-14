@@ -55,7 +55,7 @@ let polling = false
 let nonce = 0
 const logged = new Set<string>()
 
-/** One debug line per distinct message for the module's life: a poll every 15 s must not spam. */
+/** One debug line per distinct message for the module's life: a poll every 5 s must not spam. */
 function logOnce($: EngineInterface, text: string): void {
   if (logged.has(text)) return
   logged.add(text)
@@ -348,7 +348,7 @@ async function markActivity($: EngineInterface): Promise<void> {
 export const register: Register = (on, options) => {
   const settings: Settings = {
     home: typeof options.home === 'string' ? options.home.trim() : '',
-    pollMs: Math.max(5, num(options.pollSeconds, 15)) * 1_000,
+    pollMs: Math.max(5, num(options.pollSeconds, 5)) * 1_000,
     retireOnIdle: options.retireOnIdle === true,
     idleMs: num(options.idleMinutes, 50) * MINUTE,
     growthFraction: num(options.growthPercent, 50) / 100,

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.1.0-alpha.8 -- 2026-10-14 -- the watch polls every 5 s
+
+- **Watch 0.1.1: `pollSeconds` defaults to 5** (#10). The household's flood test (15 hub
+  messages from three teams in about a minute) delivered all 15 exactly once, but at 15 s
+  every second message first bounced: the hub courier waits only about 10 s for an occupied
+  inbox. The hub kept and redelivered them, late and out of order. 5 s (the minimum) matches
+  the old hub-drain Monitors. The README says why to keep it there for a `hub` source.
+- Known limit: the watch drains with POSIX `mv`/`rm`, so it does not run on Windows yet
+  (planned for the next release).
+
 ## v0.1.0-alpha.7 -- 2026-10-14 -- the watch
 
 - **New adapter: `adapters/claude-code/watch/`, watch 0.1.0** (#9; built by the workshop's agent,
