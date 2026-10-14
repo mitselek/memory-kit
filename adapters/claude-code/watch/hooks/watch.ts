@@ -268,3 +268,72 @@ export function retirePrompt(retireStep: string, idleMinutes: number, grownPerce
     'This is asked once per session.',
   ].join(' ')
 }
+
+// ---------------------------------------------------------------------------------------------
+// Platform (kit alpha.9). $.fs has no rename or delete, so the drain runs four file operations
+// on the host: POSIX mv / rm, or on Windows PowerShell's Move-Item / Remove-Item.
+
+export type Platform = 'posix' | 'windows'
+
+/** The four operations: rename, rename only where nothing is (put-back), rename over, delete. */
+export type FileOp =
+  | { op: 'move' | 'move-keep' | 'move-replace'; from: string; to: string }
+  | { op: 'remove'; path: string }
+
+/** Run where the home does not say: success means POSIX (macOS's BSD mv has no --version). */
+export const PROBE_ARGV = ['uname', '-s'] as const
+
+/** A drive-letter or UNC home is Windows; anything else needs the probe. */
+export function platformOfHome(home: string): Platform | undefined {
+  return /^([A-Za-z]:[\\/]|\\\\)/.test(home) ? 'windows' : undefined
+}
+
+/** A PowerShell single-quoted literal: no expansion; every character PowerShell reads as a single quote doubled. */
+export function psQuote(text: string): string {
+  return `'${text.replace(/['‘’‚‛]/g, q => q + q)}'`
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+/** Base64 of the text's UTF-16LE bytes: what powershell.exe -EncodedCommand reads. */
+export function base64Utf16le(text: string): string {
+  const bytes: number[] = []
+  for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i)
+    bytes.push(unit & 0xff, unit >> 8)
+  }
+  let out = ''
+  for (let i = 0; i < bytes.length; i += 3) {
+    const [a = 0, b = 0, c = 0] = [bytes[i], bytes[i + 1], bytes[i + 2]]
+    const n = (a << 16) | (b << 8) | c
+    out += B64[(n >> 18) & 63] ?? ''
+    out += B64[(n >> 12) & 63] ?? ''
+    out += i + 1 < bytes.length ? (B64[(n >> 6) & 63] ?? '') : '='
+    out += i + 2 < bytes.length ? (B64[n & 63] ?? '') : '='
+  }
+  return out
+}
+
+/**
+ * The argv for one operation. Windows: Windows PowerShell 5.1 (on every Windows 10 and 11), the
+ * script passed as -EncodedCommand so no command-line quoting is involved; -LiteralPath so
+ * `[ ]` in a path are not wildcards; a failure stops the script with exit code 1.
+ */
+export function fileOpArgv(platform: Platform, f: FileOp): string[] {
+  if (platform === 'posix') {
+    if (f.op === 'remove') return ['rm', '-f', '--', f.path]
+    const flag = f.op === 'move-keep' ? ['-n'] : f.op === 'move-replace' ? ['-f'] : []
+    return ['mv', ...flag, '--', f.from, f.to]
+  }
+  const command =
+    f.op === 'remove'
+      ? `Remove-Item -LiteralPath ${psQuote(f.path)} -Force -ErrorAction SilentlyContinue`
+      : `Move-Item -LiteralPath ${psQuote(f.from)} -Destination ${psQuote(f.to)}${f.op === 'move-replace' ? ' -Force' : ''}`
+  const script = `$ErrorActionPreference = 'Stop'; ${command}`
+  return ['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', base64Utf16le(script)]
+}
+
+/** A path's segments for glob expansion, on either separator; a leading '' is the POSIX root. */
+export function pathSegments(path: string): string[] {
+  return path.split(/[\\/]/)
+}

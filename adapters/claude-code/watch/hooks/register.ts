@@ -15,6 +15,7 @@ import {
   confValue,
   decideRetire,
   expandHome,
+  fileOpArgv,
   formatEvent,
   hubItems,
   isAsideOf,
@@ -24,13 +25,16 @@ import {
   matchSegment,
   MINUTE,
   parseSource,
+  pathSegments,
   pendingEvents,
   pendingOf,
+  platformOfHome,
+  PROBE_ARGV,
   recentAsks,
   retirePrompt,
   sourcesOf,
 } from './watch'
-import type { Item, Source } from './watch'
+import type { FileOp, Item, Platform, Source } from './watch'
 
 const startCwd = atom({ plugin: 'watch', key: 'startCwd' } as const, '')
 const askedAt = atom({ plugin: 'watch', key: 'askedAt' } as const, 0)
@@ -80,7 +84,7 @@ const dirOf = (path: string) => path.slice(0, Math.max(path.lastIndexOf('/'), pa
 /** The files a path names; `*` in a segment matches the directory's entries (never dotfiles). */
 async function expand($: EngineInterface, path: string): Promise<string[]> {
   if (!path.includes('*')) return [path]
-  const segments = path.split('/')
+  const segments = pathSegments(path)
   let bases = [segments[0] ?? '']
   for (const segment of segments.slice(1)) {
     const next: string[] = []
@@ -90,7 +94,9 @@ async function expand($: EngineInterface, path: string): Promise<string[]> {
         continue
       }
       try {
-        for (const entry of await $.fs.list(base === '' ? '/' : base)) if (matchSegment(segment, entry.name)) next.push(`${base}/${entry.name}`)
+        // '' is the POSIX root; a bare drive ('C:') is that drive's root, not its current directory.
+        const dir = base === '' ? '/' : /^[A-Za-z]:$/.test(base) ? `${base}/` : base
+        for (const entry of await $.fs.list(dir)) if (matchSegment(segment, entry.name)) next.push(`${base}/${entry.name}`)
       } catch {
         // A directory that is not there matches nothing.
       }
@@ -100,13 +106,35 @@ async function expand($: EngineInterface, path: string): Promise<string[]> {
   return bases
 }
 
-async function run($: EngineInterface, argv: string[]): Promise<boolean> {
+// The host's platform, found once per module load (kit alpha.9): a drive-letter or UNC home is
+// Windows; otherwise `uname -s` decides (it answers on Linux and macOS, not on Windows).
+let platform: Platform | undefined
+let homeHint = ''
+
+async function platformOf($: EngineInterface): Promise<Platform> {
+  if (platform !== undefined) return platform
+  let found = platformOfHome(homeHint)
+  if (found === undefined) {
+    try {
+      found = (await $.process.run([...PROBE_ARGV], { timeoutMs: 10_000 })).exitCode === 0 ? 'posix' : 'windows'
+    } catch {
+      found = 'windows'
+    }
+  }
+  platform = found
+  logOnce($, `file operations run on ${found === 'posix' ? 'POSIX mv/rm' : 'Windows PowerShell'}`)
+  return found
+}
+
+/** One rename or delete on the host; false (one debug line per distinct failure) when it failed. */
+async function fileOp($: EngineInterface, f: FileOp): Promise<boolean> {
+  const what = f.op === 'remove' ? `remove ${f.path}` : `${f.op} ${f.from} -> ${f.to}`
   try {
-    const { exitCode, stderr } = await $.process.run(argv, { timeoutMs: 10_000 })
-    if (exitCode !== 0) logOnce($, `${argv.join(' ')} failed: ${stderr.trim()}`)
+    const { exitCode, stderr } = await $.process.run(fileOpArgv(await platformOf($), f), { timeoutMs: 30_000 })
+    if (exitCode !== 0) logOnce($, `${what} failed: ${stderr.trim()}`)
     return exitCode === 0
   } catch (err) {
-    logOnce($, `${argv.join(' ')} failed: ${String(err)}`)
+    logOnce($, `${what} failed: ${String(err)}`)
     return false
   }
 }
@@ -118,7 +146,7 @@ const itemsOf = (format: Source['format'], text: string): Item[] | undefined =>
 async function replace($: EngineInterface, path: string, text: string): Promise<boolean> {
   const tmp = `${path}.watch-tmp`
   await $.fs.write(tmp, text)
-  return run($, ['mv', '-f', '--', tmp, path])
+  return fileOp($, { op: 'move-replace', from: tmp, to: path })
 }
 
 /** Adds an aside's content to the archive. False (and the aside kept) when the archive is not usable. */
@@ -156,7 +184,7 @@ async function drainAside($: EngineInterface, source: Source, file: string, asid
   const items = itemsOf(source.format, text)
   if (items === undefined) {
     // Put back only where nothing new has arrived (mv -n); otherwise it stays aside, not lost.
-    await run($, ['mv', '-n', '--', aside, file])
+    await fileOp($, { op: 'move-keep', from: aside, to: file })
     logOnce($, `${aside}: not a hub inbox; put back where ${file} was free, else left aside`)
     return
   }
@@ -165,7 +193,7 @@ async function drainAside($: EngineInterface, source: Source, file: string, asid
     const events = items.map(item => formatEvent(source.prefix, item, archivePath))
     if (!(await replace($, pendingOf(aside), `${JSON.stringify(events, null, 1)}\n`))) return
   }
-  await run($, ['rm', '-f', '--', aside])
+  await fileOp($, { op: 'remove', path: aside })
 }
 
 /** The entries of `file`'s directory that `match`, as paths, oldest first (the names carry the time). */
@@ -192,7 +220,7 @@ async function drainFile($: EngineInterface, source: Source, file: string, archi
   }
   if (items.length === 0) return
   const aside = asideOf(file, await $.clock.now(), ++nonce)
-  if (!(await run($, ['mv', '--', file, aside]))) return
+  if (!(await fileOp($, { op: 'move', from: file, to: aside }))) return
   await drainAside($, source, file, aside, archivePath)
 }
 
@@ -237,7 +265,7 @@ async function deliverPending($: EngineInterface, files: readonly string[]): Pro
       refusalTold = false
       events = rest
       if (events.length > 0) await replace($, path, `${JSON.stringify(events, null, 1)}\n`)
-      else await run($, ['rm', '-f', '--', path])
+      else await fileOp($, { op: 'remove', path })
     }
   }
 }
@@ -245,7 +273,8 @@ async function deliverPending($: EngineInterface, files: readonly string[]): Pro
 /** Drains every source into pending files; returns them all, in source order, oldest first. */
 async function drainAll($: EngineInterface, home: string, conf: string): Promise<string[]> {
   const pending: string[] = []
-  const userHome = (await $.env.get('HOME')) ?? ''
+  // Windows has USERPROFILE, and HOME only where something set it.
+  const userHome = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? ''
   for (const spec of sourcesOf(conf)) {
     const source = parseSource(spec)
     if (typeof source === 'string') {
@@ -331,6 +360,7 @@ async function tick($: EngineInterface, settings: Settings): Promise<void> {
   polling = true
   try {
     const home = await homeOf($, settings)
+    homeHint = home
     const conf = await readOrEmpty($, `${home}/memory-kit.conf`)
     await deliverPending($, await drainAll($, home, conf))
     if (settings.retireOnIdle) await idleCheck($, settings, conf)

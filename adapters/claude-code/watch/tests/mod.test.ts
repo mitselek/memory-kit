@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { CWD, HOME, SESSION, typed, worldOf } from './fixtures/world'
+import { CWD, decodeUtf16le, HOME, SESSION, typed, worldOf } from './fixtures/world'
 import type { World } from './fixtures/world'
 
 const NOW = Date.parse('2026-10-14T12:00:00Z')
@@ -48,7 +48,8 @@ describe('notifications: drain and deliver', () => {
     // The inbox is renamed aside before it is read (race-safe against a writer); the archive and
     // the pending events are written through a temporary and a rename; the aside is removed; each
     // accepted event then leaves the pending file (rewritten, then removed when empty).
-    expect(world.commands.map(c => c.slice(0, 2).join(' '))).toEqual(['mv --', 'mv -f', 'mv -f', 'rm -f', 'mv -f', 'rm -f'])
+    // The first file operation probes the host once (uname answers: POSIX).
+    expect(world.commands.map(c => c.slice(0, 2).join(' '))).toEqual(['uname -s', 'mv --', 'mv -f', 'mv -f', 'rm -f', 'mv -f', 'rm -f'])
     expect([...world.files.keys()].some(f => f.endsWith('.watch-tmp'))).toBe(false)
   })
 
@@ -215,6 +216,65 @@ describe('notifications: drain and deliver', () => {
     await clock.advance(30_000)
     expect(world.submitted).toEqual(['[kaarel] hi'])
     expect(world.logs.filter(l => l.includes('broken'))).toHaveLength(1)
+  })
+})
+
+describe('Windows (kit alpha.9)', () => {
+  const scripts = (world: World) =>
+    world.commands.filter(c => c[0] === 'powershell.exe').map(c => decodeUtf16le(c[c.length - 1] ?? '').replace(/^.*?; /, ''))
+
+  test('no uname: the drain runs through PowerShell, end to end', async ($, on) => {
+    const world = worldOf(
+      on,
+      { 'memory-kit.conf': CONF, [HUB]: hub({ from: 'po', text: 'first' }, { from: 'po', text: 'second' }) },
+      {},
+      { HOME },
+      'windows',
+    )
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toEqual([
+      '[hub mail] from po [2026-10-14T08:00:00Z]: first',
+      '[hub mail] from po [2026-10-14T08:00:00Z]: second',
+    ])
+    expect(world.files.has(HUB)).toBe(false)
+    expect(JSON.parse(world.files.get(HUB_ARCHIVE) ?? '')).toHaveLength(2)
+    expect(asides(world)).toEqual([])
+    expect(world.commands[0]).toEqual(['uname', '-s'])
+    expect(world.commands.slice(1).every(c => c[0] === 'powershell.exe')).toBe(true)
+    expect(scripts(world).map(s => s.split(' -')[0])).toEqual(['Move-Item', 'Move-Item', 'Move-Item', 'Remove-Item', 'Move-Item', 'Remove-Item'])
+  })
+
+  test('the put-back never replaces a newer inbox (Move-Item without -Force)', async ($, on) => {
+    const aside = `${CWD}/comms/inboxes/.watch-drain-team-lead.json-1-2`
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [aside]: 'garbage', [HUB]: hub({ from: 'po', text: 'new' }) }, {}, { HOME }, 'windows')
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toEqual(['[hub mail] from po [2026-10-14T08:00:00Z]: new'])
+    expect(world.files.get(aside)).toBe('garbage')
+    expect(scripts(world)[0]).toMatch(/^Move-Item -LiteralPath '.*\.watch-drain-team-lead\.json-1-2' -Destination '.*team-lead\.json'$/)
+  })
+
+  test('the platform is probed once and cached', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF }, {}, { HOME }, 'windows')
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    for (let i = 0; i < 3; i++) {
+      world.files.set(SPOOL, `line ${i}\n`)
+      await clock.advance(15_000)
+    }
+    expect(world.submitted).toEqual(['[kaarel] line 0', '[kaarel] line 1', '[kaarel] line 2'])
+    expect(world.commands.filter(c => c[0] === 'uname')).toHaveLength(1)
+  })
+
+  test('~ is USERPROFILE where HOME is not set', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [SPOOL]: 'hi\n' }, {}, { USERPROFILE: HOME }, 'windows')
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toEqual(['[kaarel] hi'])
   })
 })
 

@@ -93,6 +93,9 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   that installed the watch at alpha.7 and set no `pollSeconds` now polls every 5 s; one that set
   15 should set 5 (`claude plugin configure watch@memory-kit --values-stdin`).
 
+- **0.1.0-alpha.8 -> 0.1.0-alpha.9:** no data step. Pull, lint, `/reload-plugins`. POSIX homes see
+  no change in behaviour. A Windows home can now use the watch; check the README's Platforms list.
+
 ## Always
 
 - The home's config for the kit lives outside the subtree; a pull must never clobber it.

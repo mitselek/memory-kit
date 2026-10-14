@@ -3,12 +3,14 @@ import { describe, expect, test } from 'claude-code/testing'
 import {
   archiveFor,
   asideOf,
+  base64Utf16le,
   backoffMs,
   brake,
   confValue,
   decideRetire,
   EVENT_LIMIT,
   expandHome,
+  fileOpArgv,
   formatEvent,
   HOUR,
   hubItems,
@@ -17,9 +19,13 @@ import {
   isPendingOf,
   lineItems,
   matchSegment,
+  pathSegments,
   parseSource,
   pendingEvents,
   pendingOf,
+  platformOfHome,
+  PROBE_ARGV,
+  psQuote,
   retirePrompt,
   sourcesOf,
   SURVIVE_MS,
@@ -257,5 +263,70 @@ describe('retire decision (the five guards)', () => {
     expect(text).toContain('touch .fresh-next, then exit')
     expect(text).toMatch(/exact wording/)
     expect(text.length).toBeLessThanOrEqual(EVENT_LIMIT * 2)
+  })
+})
+
+describe('platform: the four file operations (kit alpha.9)', () => {
+  const decode = (b64: string) => {
+    const bin = atob(b64)
+    let out = ''
+    for (let i = 0; i + 1 < bin.length; i += 2) out += String.fromCharCode(bin.charCodeAt(i) | (bin.charCodeAt(i + 1) << 8))
+    return out
+  }
+  const script = (argv: string[]) => {
+    expect(argv.slice(0, 4)).toEqual(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand'])
+    expect(argv).toHaveLength(5)
+    return decode(argv[4] ?? '')
+  }
+  const from = '/c/My Inbox [team]/.watch-drain-team-lead.json-1-2'
+  const to = "/c/My Inbox [team]/O'Brien's lead.json"
+
+  test('POSIX: mv, mv -n, mv -f, rm -f, each with -- before the paths', () => {
+    expect(fileOpArgv('posix', { op: 'move', from, to })).toEqual(['mv', '--', from, to])
+    expect(fileOpArgv('posix', { op: 'move-keep', from, to })).toEqual(['mv', '-n', '--', from, to])
+    expect(fileOpArgv('posix', { op: 'move-replace', from, to })).toEqual(['mv', '-f', '--', from, to])
+    expect(fileOpArgv('posix', { op: 'remove', path: from })).toEqual(['rm', '-f', '--', from])
+  })
+
+  test('Windows: Move-Item (fails on an existing target), -Force to replace, Remove-Item quietly; -LiteralPath', () => {
+    const q = (p: string) => psQuote(p)
+    expect(script(fileOpArgv('windows', { op: 'move', from, to }))).toBe(
+      `$ErrorActionPreference = 'Stop'; Move-Item -LiteralPath ${q(from)} -Destination ${q(to)}`,
+    )
+    // No-clobber put-back: plain Move-Item refuses an existing target, which is the point.
+    expect(script(fileOpArgv('windows', { op: 'move-keep', from, to }))).toBe(
+      `$ErrorActionPreference = 'Stop'; Move-Item -LiteralPath ${q(from)} -Destination ${q(to)}`,
+    )
+    expect(script(fileOpArgv('windows', { op: 'move-replace', from, to }))).toBe(
+      `$ErrorActionPreference = 'Stop'; Move-Item -LiteralPath ${q(from)} -Destination ${q(to)} -Force`,
+    )
+    expect(script(fileOpArgv('windows', { op: 'remove', path: from }))).toBe(
+      `$ErrorActionPreference = 'Stop'; Remove-Item -LiteralPath ${q(from)} -Force -ErrorAction SilentlyContinue`,
+    )
+  })
+
+  test("PowerShell quoting: single quotes, every quote PowerShell reads as one doubled; [ ] and $ stay literal", () => {
+    expect(psQuote("C:\\Users\\m\\My Inbox [team]\\a$b.json")).toBe("'C:\\Users\\m\\My Inbox [team]\\a$b.json'")
+    expect(psQuote("O'Brien")).toBe("'O''Brien'")
+    expect(psQuote('it\u2019s \u2018x\u2019 \u201a \u201b')).toBe("'it\u2019\u2019s \u2018\u2018x\u2019\u2019 \u201a\u201a \u201b\u201b'")
+  })
+
+  test('the script travels as UTF-16LE base64 (-EncodedCommand): no command-line quoting at all', () => {
+    expect(base64Utf16le('a')).toBe('YQA=')
+    expect(base64Utf16le('Wõ€')).toBe(btoa('W\0\xf5\0\xac\x20'))
+    expect(decode(base64Utf16le("Move-Item 'ä [x]'"))).toBe("Move-Item 'ä [x]'")
+  })
+
+  test('detection: a drive-letter or UNC home is Windows; otherwise the probe decides', () => {
+    expect(platformOfHome('C:\\Users\\m\\kit')).toBe('windows')
+    expect(platformOfHome('d:/kit')).toBe('windows')
+    expect(platformOfHome('\\\\server\\share\\kit')).toBe('windows')
+    expect(platformOfHome('/home/m/kit')).toBeUndefined()
+    expect(PROBE_ARGV).toEqual(['uname', '-s'])
+  })
+
+  test('glob segments split on either separator, a drive kept whole', () => {
+    expect(pathSegments('/home/u/.claude/teams/session-*/inboxes/a.json')).toEqual(['', 'home', 'u', '.claude', 'teams', 'session-*', 'inboxes', 'a.json'])
+    expect(pathSegments('C:\\Users\\m\\.claude\\teams\\session-*\\inboxes\\a.json')).toEqual(['C:', 'Users', 'm', '.claude', 'teams', 'session-*', 'inboxes', 'a.json'])
   })
 })
