@@ -122,5 +122,35 @@ class Finding4ARollbackThatFailsIsSaidPlainly(unittest.TestCase):
         self.assertIn("index.lock", out)
 
 
+class Finding5NetworkCallsAreBounded(unittest.TestCase):
+    def test_fetch_and_subtree_pull_carry_the_timeout(self):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"])
+        code, out = run_tool(host)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(host.timeout_of("fetch"), [ku.NETWORK_TIMEOUT])
+        self.assertEqual(host.timeout_of("subtree"), [ku.NETWORK_TIMEOUT])
+        self.assertEqual(ku.NETWORK_TIMEOUT, 300)
+
+    def test_a_pull_that_times_out_is_a_failure_and_rolled_back(self):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="hang")
+        code, out = run_tool(host)
+        self.assertEqual(code, 1)
+        self.assertIn("timed out after 300 s", out)
+        self.assertEqual(len(host.timeout_of("reset")), 1)
+
+    def test_a_fetch_that_times_out_fails_cleanly_before_anything_changed(self):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], fetch="hang")
+        code, out = run_tool(host)
+        self.assertEqual(code, 1)
+        self.assertIn("timed out after 300 s", out)
+        self.assertEqual(host.timeout_of("subtree"), [])
+
+    def test_git_never_waits_on_a_credential_prompt(self):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"])
+        run_tool(host)
+        fetch_env = [kw.get("env") or {} for argv, kw in host.calls if "fetch" in argv][0]
+        self.assertEqual(fetch_env.get("GIT_TERMINAL_PROMPT"), "0")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

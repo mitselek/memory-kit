@@ -22,6 +22,7 @@ Exit: 0 updated or nothing to do, 1 refused or failed (and anything changed undo
 or setup, 3 the undo itself failed: the tree may be partly pulled (the message says how to recover).
 Kit #15. The kit-update plugin prompts a session to run this when a release appears.
 """
+import os
 import pathlib
 import re
 import subprocess
@@ -29,6 +30,11 @@ import sys
 
 DEFAULT_UPSTREAM = "https://codeberg.org/mitselek/memory-kit.git"
 EXIT_ROLLBACK_FAILED = 3
+# The bound on a network git call (fetch, subtree pull; ls-remote keeps its own 60 s). The kit is
+# small: a fetch takes seconds on a slow link. 300 s leaves room for a slow remote and a large
+# home's subtree merge while still ending a stalled transfer; a timeout is a failure (ultrareview
+# alpha.13, finding 5).
+NETWORK_TIMEOUT = 300
 TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$")
 PRE_RANK = {"alpha": 0, "beta": 1, "rc": 2, None: 3}
 
@@ -45,9 +51,15 @@ def key(tag):
     return (int(ma), int(mi), int(pa), PRE_RANK[pre], int(n or 0))
 
 
-def git(home, *args, check=True):
-    r = subprocess.run(["git", "-C", str(home), *args], capture_output=True, text=True,
-                       encoding="utf-8")
+def git(home, *args, check=True, timeout=None):
+    """git in the home. With a timeout, a call still running then is stopped and fails (exit 124,
+    "timed out after N s"), and git never waits on a credential prompt (GIT_TERMINAL_PROMPT=0)."""
+    argv = ["git", "-C", str(home), *args]
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=timeout, env=env)
+    except subprocess.TimeoutExpired:
+        r = subprocess.CompletedProcess(argv, 124, "", f"timed out after {timeout} s")
     if check and r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
     return r
@@ -164,7 +176,11 @@ def main(argv):
         say("the home fails its own lint gate before any update; fix that first")
         return 1
 
-    git(home, "fetch", "--no-tags", "--quiet", url, f"refs/tags/{target}")
+    fetch = git(home, "fetch", "--no-tags", "--quiet", url, f"refs/tags/{target}", check=False,
+                timeout=NETWORK_TIMEOUT)
+    if fetch.returncode != 0:
+        say(f"cannot fetch {target} from {url}: {fetch.stderr.strip()[:300]} (nothing changed)")
+        return 1
     upgrade_md = git(home, "show", "FETCH_HEAD:UPGRADE.md").stdout
     path = step_path(current, releases, target)
     refusal = data_steps_ok(upgrade_md, path)
@@ -178,7 +194,7 @@ def main(argv):
     start = git(home, "rev-parse", "HEAD").stdout.strip()
     msg = f"chore: memory-kit {current} -> {target[1:]} (kit-update, {channel})"
     pull = git(home, "subtree", "pull", "--prefix=memory-kit", url, target, "--squash",
-               "-m", msg, check=False)
+               "-m", msg, check=False, timeout=NETWORK_TIMEOUT)
     if pull.returncode != 0:
         return undo(home, start, f"subtree pull failed: {pull.stderr.strip()[:300]}")
     ok, out = lint_passes(home)

@@ -19,6 +19,10 @@ Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
   `git reset --hard` back to the start was not checked, and the tool always said "undone". Now
   a failed reset says the tree may be partly pulled and how to recover (a stale `index.lock`,
   then `git reset --hard <start>`), and exits **3**, a code of its own.
+- **kit-update.py bounds its network calls** (finding 5). `git fetch` and `git subtree pull` had
+  no timeout and could hang on a stalled remote. Both now stop at 300 s (`NETWORK_TIMEOUT`): a
+  timeout is a failure; a timed-out pull goes through the undo, and a timed-out fetch changes
+  nothing. git never waits on a credential prompt (`GIT_TERMINAL_PROMPT=0`).
 
 ## v0.1.0-alpha.13 -- 2026-10-14 -- kit updates: channels, the tool, the plugin
 
