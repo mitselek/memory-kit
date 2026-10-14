@@ -208,14 +208,82 @@ describe('notifications: drain and deliver', () => {
     expect(world.commands).toEqual([])
   })
 
-  test('a bad source line is skipped with one debug line; the good ones still run', async ($, on) => {
+  test('a bad source line is skipped with one visible notice; the good ones still run', async ($, on) => {
     const conf = 'watch_sources:\n  - "broken | json | x"\n  - "kaarel | lines | ~/spool/kaarel.txt"\n'
     const world = worldOf(on, { 'memory-kit.conf': conf, [SPOOL]: 'hi\n' })
     const clock = mock.clock(on, { now: NOW })
     await $.session.start(SESSION)
     await clock.advance(30_000)
     expect(world.submitted).toEqual(['[kaarel] hi'])
-    expect(world.logs.filter(l => l.includes('broken'))).toHaveLength(1)
+    expect(world.notified).toEqual([expect.stringMatching(/broken \| json \| x.*unknown format/)])
+  })
+})
+
+describe('never idle silently (kit #14)', () => {
+  test("mvox's one-line flow list is read, and its mail delivered", async ($, on) => {
+    const conf = 'watch_sources: ["hub mail | hub | comms/inboxes/team-lead.json", \'kaarel | lines | ~/spool/kaarel.txt\']\n'
+    const world = worldOf(on, { 'memory-kit.conf': conf, [HUB]: hub({ from: 'po', text: 'Ping' }), [SPOOL]: 'hi\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toEqual(['[hub mail] from po [2026-10-14T08:00:00Z]: Ping', '[kaarel] hi'])
+    expect(world.notified).toEqual([])
+  })
+
+  for (const [what, conf] of [
+    ['declared with no items', 'watch_sources:\nmode: gate\n'],
+    ['a form the watch cannot read', 'watch_sources: "hub mail | hub | x.json"\n'],
+    ['only items that do not parse', 'watch_sources:\n  - "hub mail | json | x.json"\n'],
+  ] as const) {
+    test(`watch_sources ${what}: one visible notice, not one per poll`, async ($, on) => {
+      const world = worldOf(on, { 'memory-kit.conf': conf })
+      const clock = mock.clock(on, { now: NOW })
+      await $.session.start(SESSION)
+      await clock.advance(60_000)
+      expect(world.notified.filter(n => n.includes('watch_sources'))).toHaveLength(1)
+      expect(world.notified.some(n => n.includes(`${CWD}/memory-kit.conf`))).toBe(true)
+    })
+  }
+
+  test('where no channel shows the notice, it goes to the transcript', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_sources:\nmode: gate\n' })
+    world.notifyResult = { isSent: false, reason: 'no-channel' }
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.logs.filter(l => l.startsWith('transcript: ') && l.includes('watch_sources'))).toHaveLength(1)
+  })
+
+  test('watch_sources: [] is a home that watches nothing on purpose: no notice', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_sources: []\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(30_000)
+    expect(world.notified).toEqual([])
+  })
+
+  test('/watch says what is active, after a reload as any time', async ($, on) => {
+    const conf = 'watch_sources: ["hub mail | hub | comms/inboxes/team-lead.json", "broken | json | x", \'kaarel | lines | ~/spool/kaarel.txt\']\n'
+    worldOf(on, { 'memory-kit.conf': conf })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toContain('2 sources active')
+    expect(text).toContain(`${CWD}/memory-kit.conf`)
+    expect(text).toContain('[hub mail] hub')
+    expect(text).toContain('[kaarel] lines')
+    expect(text).toMatch(/broken \| json \| x.*unknown format/)
+    expect(text).toMatch(/retire on idle: off/)
+  })
+
+  test('/watch with nothing declared says so', async ($, on) => {
+    worldOf(on, { 'memory-kit.conf': 'memory_dir: memory\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toMatch(/no watch_sources/)
   })
 })
 

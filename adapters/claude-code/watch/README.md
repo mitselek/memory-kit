@@ -48,7 +48,33 @@ Each item is `prefix | format [modifiers] | path [| archive]`:
   is `archive/` beside the file: `<stem>-archive.json` for hub, the same file name for lines. Both
   defaults match the household's `comms/inboxes/archive/team-lead-archive.json`.
 
-A bad line is skipped with one debug line; the rest still run.
+**Either YAML list form** (since 0.2.3, kit #14):
+
+- the block form above, with items indented or at column 0;
+- the flow form, on one line or several:
+  `watch_sources: ["hub mail | hub unread courier | ~/.claude/teams/session-*/inboxes/team-lead.json"]`.
+
+In the flow form, items may be `"double"` quoted (with `\"` and `\\`), `'single'` quoted (with
+`''`) or plain. A comma or bracket inside a quoted item is part of it. A plain item ends at a
+comma.
+
+**Never silently idle.** Each case below is one visible notice per session (notify, else a
+transcript line), never a debug line alone:
+
+- `watch_sources:` is there but cannot be read: no items under it, a value that is not a list,
+  an unterminated `[ ...`, nested lists or maps, or items without commas between them.
+- One item does not parse, or names `~` with no HOME. That item is skipped, and the rest still
+  run.
+
+`watch_sources: []` is a home watching nothing on purpose, so it gets no notice.
+
+**`/watch`** shows what is active now:
+
+- each source with its format and expanded path;
+- what was skipped, and why;
+- the retire switch and the poll interval.
+
+It re-reads `memory-kit.conf` every time, so it is the check to run after a reload.
 
 ## Draining
 
@@ -120,6 +146,9 @@ bell), it also goes to the transcript as a dim line.
 
 - `home`: the kit home whose `memory-kit.conf` declares the sources. Empty: the session's start
   directory.
+- Setting options from a shell: `claude plugin configure watch@memory-kit --values-stdin` takes
+  a JSON object of **strings only**, e.g. `{"pollSeconds": "5", "retireOnIdle": "false"}`;
+  bare numbers and booleans are refused (found by mvox, 2026-10-14).
 - `pollSeconds` (5, at least 5): the drain and idle-check interval. It reads local files only.
   For a `hub` source keep it at 5: the hub courier waits only about 10 s for an occupied inbox
   (50 rounds of 0.2 s), so a slower poll makes a burst bounce and arrive late and out of order

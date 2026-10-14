@@ -29,6 +29,7 @@ import {
   PROBE_ARGV,
   psQuote,
   retirePrompt,
+  readSources,
   sourcesOf,
   STALE_LOCK_MS,
   SURVIVE_MS,
@@ -90,6 +91,55 @@ describe('sources', () => {
     expect(matchSegment('*.json', 'team-lead.txt')).toBe(false)
     expect(matchSegment('team-lead.json', 'team-lead.json')).toBe(true)
     expect(matchSegment('a.b', 'aXb')).toBe(false)
+  })
+})
+
+describe('watch_sources: the flow form too, and never silently empty (kit #14)', () => {
+  const BLOCK = ['watch_sources:', '  - "hub mail | hub unread courier | ~/.claude/teams/session-*/inboxes/team-lead.json"', "  - 'kaarel | lines | ~/spool/k.txt'", ''].join('\n')
+  const ITEMS = ['hub mail | hub unread courier | ~/.claude/teams/session-*/inboxes/team-lead.json', 'kaarel | lines | ~/spool/k.txt']
+
+  test("mvox's one-line flow list reads as the block form does", () => {
+    const flow = `watch_sources: ["${ITEMS[0]}", '${ITEMS[1]}']\n`
+    expect(readSources(flow)).toEqual({ declared: true, items: ITEMS })
+    expect(readSources(BLOCK)).toEqual({ declared: true, items: ITEMS })
+    expect(sourcesOf(flow)).toEqual(sourcesOf(BLOCK))
+  })
+
+  test('flow quoting: commas and brackets inside quotes, escapes, plain items, a comment, a trailing comma', () => {
+    expect(readSources(`watch_sources: [ "a, b | hub | x[1].json", 'it''s | lines | y.txt', plain | lines | z.txt, ] # three\n`)).toEqual({
+      declared: true,
+      items: ['a, b | hub | x[1].json', "it's | lines | y.txt", 'plain | lines | z.txt'],
+    })
+    expect(readSources('watch_sources: ["say \\"hi\\" | lines | a\\\\b.txt"]\n').items).toEqual(['say "hi" | lines | a\\b.txt'])
+  })
+
+  test('a flow list over several lines', () => {
+    const conf = ['watch_sources: [', `  "${ITEMS[0]}",`, '  # a comment line', `  '${ITEMS[1]}'`, ']', 'mode: gate', ''].join('\n')
+    expect(readSources(conf)).toEqual({ declared: true, items: ITEMS })
+  })
+
+  test('declared empty on purpose ([]) is no problem; absent is not declared', () => {
+    expect(readSources('watch_sources: []\n')).toEqual({ declared: true, items: [] })
+    expect(readSources('watch_sources: [ ] # none yet\n')).toEqual({ declared: true, items: [] })
+    expect(readSources('mode: gate\n')).toEqual({ declared: false, items: [] })
+  })
+
+  test('anything else the watch cannot read says so, never a silent empty list', () => {
+    const cases: [string, RegExp][] = [
+      ['watch_sources:\nmode: gate\n', /no items/],
+      ['watch_sources:\n  -\n', /no items/],
+      ['watch_sources: "a | hub | x"\n', /a list/],
+      ['watch_sources: ["a | hub | x"\n', /unterminated|closing/],
+      ['watch_sources: ["a | hub | x]\n', /unterminated/],
+      ['watch_sources: [["a"]]\n', /nested/],
+      ['watch_sources: [{a: b}]\n', /nested/],
+      ['watch_sources: ["a" "b"]\n', /comma/],
+    ]
+    for (const [conf, problem] of cases) {
+      const read = readSources(conf)
+      expect(read.declared, conf).toBe(true)
+      expect(read.problem, conf).toMatch(problem)
+    }
   })
 })
 

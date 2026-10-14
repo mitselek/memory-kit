@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.1.0-alpha.12 -- 2026-10-14 -- the watch never idles silently
+
+- **Watch 0.2.3** (#14, found at mvox; built by the workshop's agent, 90/90 tests).
+  - `watch_sources` may be a block list or a one-line (or multi-line) flow list; quoting and
+    trailing commas work. At mvox the flow form had been ignored silently, so the watch idled.
+  - Never silent: a declared list it cannot read, and every skipped item, raises one visible
+    notice naming the conf. `watch_sources: []` stays quiet on purpose.
+  - New `/watch` command: the active sources (format, modifiers, path), the skipped ones with
+    reasons, the poll interval and the retire switch.
+  - README: `plugin configure --values-stdin` takes strings only.
+
 ## v0.1.0-alpha.11 -- 2026-10-14 -- Windows fixes: UTF-8 everywhere, quiet removes
 
 - **Watch 0.2.2: a remove or unlock of a path already gone no longer fails** (#11, found by

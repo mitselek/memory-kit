@@ -192,6 +192,7 @@ export function worldOf(
     }
     return fail(`not mocked: ${argv.join(' ')}`)
   })
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('session.cwd', () => ({ value: CWD }))
   on('session.usage', () => ({
     value: {
