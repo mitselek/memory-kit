@@ -285,6 +285,24 @@ def lesson_front_matter(path):
     return meta if isinstance(meta, dict) else None
 
 
+def summary_cut_by_hash(path):
+    """Whether a lesson's front-matter summary is a plain (unquoted) value holding ' #'. YAML reads
+    the rest of the line as a comment, so the summary is silently cut, and the generated index
+    agrees with the cut value: only the raw text shows it (ultrareview alpha.13, finding 2).
+
+    Only `summary`, the free-text field the index and the pane show. The short fields may carry a
+    deliberate trailing comment (tools/lesson-index.py documents `enforcement: recognition  # ...`),
+    and from the raw text a deliberate comment and a cut value look the same."""
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        return False
+    for line in text[4:].partition("\n---\n")[0].splitlines():
+        m = re.match(r"^summary:[ \t]+(.*)$", line)
+        if m and m.group(1)[:1] not in ("'", '"', "|", ">") and re.search(r"[ \t]#", m.group(1)):
+            return True
+    return False
+
+
 def lesson_drift(body, row, f):
     # The index is generated from the front matter; any difference means it was hand-edited
     # or not regenerated -- the rot the generated index exists to prevent.
@@ -292,6 +310,8 @@ def lesson_drift(body, row, f):
     if meta is None:
         f.fail(body, "no front matter; the index fields live there (tools/lesson-index.py)")
         return
+    if summary_cut_by_hash(body):
+        f.fail(body, "front matter summary: an unquoted ' #' starts a YAML comment and cuts the value -- quote it")
     extra = sorted(set(meta) - set(LESSON_FRONT_KEYS))
     if extra:
         f.fail(body, f"front matter: unknown key(s) {', '.join(extra)}")

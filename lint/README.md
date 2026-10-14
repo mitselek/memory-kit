@@ -15,7 +15,9 @@ is missing: a lint that skips checks is worse than no lint.
 ## What is a failure and what is a note
 
 Failures are shape: a cap exceeded, a ref outside the grammar, a missing or unknown key, a
-bad date, an inline URL, a lesson indexed with no file or on disk with no index line.
+bad date, an inline URL, a lesson indexed with no file or on disk with no index line, a lesson
+summary cut by an unquoted ` #` (YAML reads the rest of the line as a comment, so the generated
+index agrees with the cut value; only the raw front matter shows it).
 
 Notes never fail a gate. They are the honest gaps the kit wants counted rather than hidden:
 

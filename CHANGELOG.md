@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
+
+- **Lesson summary cut by ` #`** (finding 2). `link-a-ticket-with-a-url-file.md`'s unquoted
+  summary held ` #123)`, which YAML reads as a comment, so the index carried "Make a ticket key
+  (Jira VEO-214, issue". The summary is quoted and the index regenerated. New lint check: a lesson
+  summary whose plain value holds ` #` fails, read from the raw front matter (the parsed value has
+  already lost it). Fixture `invalid/lesson-unquoted-hash`. Only `summary`: the short fields may
+  carry a deliberate trailing comment, which raw text cannot tell from a cut value.
+
 ## v0.1.0-alpha.13 -- 2026-10-14 -- kit updates: channels, the tool, the plugin
 
 - **New adapter: `adapters/claude-code/kit-update/`, kit-update 0.1.0** (#15 part 3; built by the
