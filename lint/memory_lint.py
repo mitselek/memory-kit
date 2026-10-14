@@ -12,6 +12,11 @@ import pathlib
 import re
 import sys
 
+# Importing kit_home must leave no lint/__pycache__ in a home's vendored kit: an untracked file
+# there is a dirty tree, which kit-update.py refuses.
+sys.dont_write_bytecode = True
+import kit_home  # lint/kit_home.py: memory-kit.conf kit_home names the home (kit #18)
+
 try:
     import yaml
 except ImportError:
@@ -468,6 +473,20 @@ def main(argv=None):
     # memory-directory path wins over the conf.
     target = pathlib.Path(a.target).resolve()
     home = target.parent if target.name == "memory" else target
+    pointer_lines, pointer_notes = [], []
+    if target.name != "memory":
+        # A pointer conf (kit_home:) hands the lint to the home it names, one hop (kit #18). A
+        # pointer-only conf so passes when its home does; a broken pointer fails in every mode.
+        found = kit_home.resolve(home)
+        if found.problem:
+            print(f"memory-kit lint {caps['version']} -- {home}")
+            print(f"  FAIL memory-kit.conf: {found.problem}")
+            return 2
+        if found.pointer:
+            home = found.home
+            pointer_lines.append(f"  following kit_home in {found.pointer} to {home}")
+            if found.ignored:
+                pointer_notes.append((found.pointer, f"ignored in a pointer conf: {', '.join(found.ignored)} (they count in {home / 'memory-kit.conf'})"))
     conf_path = home / "memory-kit.conf"
     conf = {}
     if conf_path.exists():
@@ -488,9 +507,13 @@ def main(argv=None):
         return 2
 
     f = Findings()
+    for path, msg in pointer_notes:
+        f.note(path, msg)
     lint_tree(mem, caps, f, ref_re, today, shipped_rules=a.shipped_rules)
 
     print(f"memory-kit lint {caps['version']} -- {mode} -- {mem}")
+    for line in pointer_lines:
+        print(line)
     if f.counts:
         print("  " + " | ".join(f"{k}: {v}" for k, v in sorted(f.counts.items())))
     notes = [i for i in f.items if i[0] == "note"]

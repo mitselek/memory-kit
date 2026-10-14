@@ -10,6 +10,9 @@ The home's memory-kit.conf names the channel:
     update: latest      # the newest release tag
     upstream: mitselek/memory-kit    # optional; a Codeberg owner/repo or a git URL
 
+A folder that is not the home may hold a pointer conf, `kit_home: <path>` (absolute, or relative
+to that conf): the tool then runs on the home it names, one hop (lint/kit_home.py, kit #18).
+
 What it does, and what it never does:
   - refuses a dirty tree, a new major version, and any step whose UPGRADE.md entry does not
     begin "no data step" (those need the full UPGRADE.md steps, by hand);
@@ -27,6 +30,12 @@ import pathlib
 import re
 import subprocess
 import sys
+
+# Importing kit_home must leave no lint/__pycache__ in a home's vendored kit: an untracked file
+# there is a dirty tree, which kit-update.py refuses.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "lint"))
+import kit_home  # noqa: E402  (kit #18: memory-kit.conf kit_home names the home)
 
 DEFAULT_UPSTREAM = "https://codeberg.org/mitselek/memory-kit.git"
 EXIT_ROLLBACK_FAILED = 3
@@ -126,7 +135,14 @@ def lint_passes(home):
 def main(argv):
     args = [a for a in argv[1:] if not a.startswith("--")]
     dry = "--dry-run" in argv
-    home = pathlib.Path(args[0] if args else ".").resolve()
+    start = pathlib.Path(args[0] if args else ".").resolve()
+    found = kit_home.resolve(start)
+    if found.problem:
+        say(found.problem)
+        return 2
+    home = found.home
+    if found.pointer:
+        say(f"following kit_home in {found.pointer} to {home}")
     vfile, cfile = home / "memory-kit" / "VERSION", home / "memory-kit.conf"
     if not vfile.exists() or not cfile.exists():
         say(f"{home} is not a kit home (needs memory-kit/VERSION and memory-kit.conf)")

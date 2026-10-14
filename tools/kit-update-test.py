@@ -23,6 +23,12 @@ spec = importlib.util.spec_from_file_location("kit_update", HERE / "kit-update.p
 ku = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ku)
 
+spec_due = importlib.util.spec_from_file_location("obligations_due", HERE / "obligations-due.py")
+due = importlib.util.module_from_spec(spec_due)
+spec_due.loader.exec_module(due)
+sys.path.insert(0, str(HERE.parent / "lint"))
+import kit_home  # noqa: E402  (lint/kit_home.py: the one Python copy of the kit_home rules)
+
 UPGRADE = """## Per version
 - **0.1.0-alpha.11 -> 0.1.0-alpha.12:** no data step. Pull, lint.
 - **0.1.0-alpha.12 -> 0.1.0-alpha.13:** no data step. Pull, lint.
@@ -152,6 +158,132 @@ class Finding5NetworkCallsAreBounded(unittest.TestCase):
         run_tool(host)
         fetch_env = [kw.get("env") or {} for argv, kw in host.calls if "fetch" in argv][0]
         self.assertEqual(fetch_env.get("GIT_TERMINAL_PROMPT"), "0")
+
+
+def tree(root, files):
+    """Write {relative path: text} under root."""
+    for rel, text in files.items():
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+
+
+class KitHomePointer(unittest.TestCase):
+    """kit #18: memory-kit.conf `kit_home:` names the home; one hop, never chained."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_no_pointer_the_start_is_the_home(self):
+        tree(self.root, {"start/memory-kit.conf": "memory_dir: memory\n"})
+        r = kit_home.resolve(self.root / "start")
+        self.assertEqual((r.home, r.pointer, r.problem), (self.root / "start", None, None))
+        r = kit_home.resolve(self.root / "nothing-here")
+        self.assertEqual((r.home, r.problem), (self.root / "nothing-here", None))
+
+    def test_a_relative_pointer_is_relative_to_the_conf_folder(self):
+        tree(self.root, {"start/memory-kit.conf": "kit_home: ../desk\n", "desk/memory-kit.conf": "memory_dir: memory\n"})
+        r = kit_home.resolve(self.root / "start")
+        self.assertEqual(r.home, self.root / "desk")
+        self.assertEqual(r.pointer, self.root / "start" / "memory-kit.conf")
+        self.assertIsNone(r.problem)
+
+    def test_an_absolute_pointer_and_windows_paths_count_as_absolute(self):
+        tree(self.root, {"start/memory-kit.conf": f"kit_home: '{self.root / 'desk'}'  # the desk\n", "desk/memory-kit.conf": ""})
+        self.assertEqual(kit_home.resolve(self.root / "start").home, self.root / "desk")
+        for p in ["/srv/home", "C:\\Users\\m\\.claude\\pepys", "C:/Users/m", "\\\\server\\share\\kit"]:
+            self.assertTrue(kit_home.is_absolute(p), p)
+        for p in ["desk", "../desk", "C:desk", "~/desk"]:
+            self.assertFalse(kit_home.is_absolute(p), p)
+
+    def test_a_target_without_a_conf_is_a_problem_not_a_silent_home(self):
+        tree(self.root, {"start/memory-kit.conf": "kit_home: ../nowhere\n"})
+        r = kit_home.resolve(self.root / "start")
+        self.assertIsNone(r.home)
+        self.assertIn("no memory-kit.conf", r.problem)
+        self.assertIn(str(self.root / "nowhere"), r.problem)
+
+    def test_followed_one_hop_never_chained_and_loops_refused(self):
+        tree(self.root, {
+            "a/memory-kit.conf": "kit_home: ../b\n",
+            "b/memory-kit.conf": "kit_home: ../c\n",
+            "c/memory-kit.conf": "memory_dir: memory\n",
+        })
+        r = kit_home.resolve(self.root / "a")
+        self.assertIsNone(r.home)
+        self.assertIn("one hop", r.problem)
+        tree(self.root, {"b/memory-kit.conf": "kit_home: ../a\n"})
+        self.assertIn("one hop", kit_home.resolve(self.root / "a").problem)
+
+    def test_a_home_naming_itself_is_just_the_home(self):
+        tree(self.root, {"desk/memory-kit.conf": "kit_home: .\nmemory_dir: memory\n"})
+        r = kit_home.resolve(self.root / "desk")
+        self.assertEqual((r.home, r.pointer, r.problem), (self.root / "desk", None, None))
+        tree(self.root, {"start/memory-kit.conf": "kit_home: ../desk\n"})
+        self.assertEqual(kit_home.resolve(self.root / "start").home, self.root / "desk")
+
+    def test_tilde_is_refused_plainly(self):
+        tree(self.root, {"start/memory-kit.conf": "kit_home: ~/desk\n"})
+        self.assertIn("absolute or relative", kit_home.resolve(self.root / "start").problem)
+
+    def test_other_keys_in_a_pointer_conf_are_reported_as_ignored(self):
+        tree(self.root, {
+            "start/memory-kit.conf": "# pointer\nkit_home: ../desk\nwatch_sources:\n  - a | lines | x\nmemory_dir: m\n",
+            "desk/memory-kit.conf": "",
+        })
+        self.assertEqual(kit_home.resolve(self.root / "start").ignored, ["watch_sources", "memory_dir"])
+
+
+class ToolsFollowThePointer(unittest.TestCase):
+    def test_kit_update_runs_on_the_home_the_pointer_names(self):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"])
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {
+                "start/memory-kit.conf": "kit_home: ../desk\n",
+                "desk/memory-kit.conf": "update: latest\n",
+                "desk/memory-kit/VERSION": "0.1.0-alpha.13\n",
+            })
+            real, ku.subprocess.run = ku.subprocess.run, host
+            out = io.StringIO()
+            try:
+                with redirect_stdout(out):
+                    code = ku.main(["kit-update.py", str(root / "start")])
+            finally:
+                ku.subprocess.run = real
+            self.assertEqual(code, 0, out.getvalue())
+            self.assertIn(f"following kit_home in {root / 'start' / 'memory-kit.conf'} to {root / 'desk'}", out.getvalue())
+            homes = {argv[2] for argv, kw in host.calls if argv[:2] == ["git", "-C"]}
+            self.assertEqual(homes, {str(root / "desk")})
+
+    def test_kit_update_refuses_a_broken_pointer(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {"start/memory-kit.conf": "kit_home: ../nowhere\n"})
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = ku.main(["kit-update.py", str(root / "start")])
+            self.assertEqual(code, 2)
+            self.assertIn("no memory-kit.conf", out.getvalue())
+
+    def test_obligations_due_reads_the_home_the_pointer_names(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {
+                "start/memory-kit.conf": "kit_home: ../desk\n",
+                "desk/memory-kit.conf": "memory_dir: notes\n",
+                "desk/notes/obligations.yaml": "obligations:\n  - obligation: from the desk\n    actor: Pepys\n    expires: 2000-01-01\n",
+            })
+            self.assertEqual(due.memory_dir(root / "start"), root / "desk" / "notes")
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = due.main(["obligations-due.py", str(root / "start")])
+            self.assertEqual(code, 0)
+            self.assertIn("from the desk", out.getvalue())
 
 
 if __name__ == "__main__":

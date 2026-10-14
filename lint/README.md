@@ -9,6 +9,17 @@ is missing: a lint that skips checks is worse than no lint.
 - `--report` always exits 0. For a home still clearing adoption debt.
 - Neither: the mode comes from `memory-kit.conf` (`mode: gate | gauge`), default gate.
 
+**A pointer conf** (kit #18). If the path's `memory-kit.conf` says `kit_home: <path>` (absolute,
+or relative to that conf's folder), the lint runs on the home it names: that home's conf,
+`memory_dir` and mode.
+- It follows the pointer one hop, never chained. The target's own conf may not point on, so a
+  loop is refused too.
+- A pointer-only conf passes when its home passes. The pointer conf's other keys are ignored, and
+  the lint lists them as a note.
+- A broken pointer fails in every mode: the target has no conf, or the pointer chains. The rules
+  live in `lint/kit_home.py`, which the tools import too.
+- A memory-directory path given directly is linted as given, pointer or not.
+
 **A gate must pass on the tree it is introduced to.** A lint that fails on day one teaches
 `--no-verify`.
 

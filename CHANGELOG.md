@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **`kit_home:` in memory-kit.conf names the kit home** (#18, from the pepys desk).
+  - A folder that is not the home holds a pointer conf, `kit_home: ../desk` (absolute, or relative
+    to that conf's folder), instead of setting a plugin's `home`/`memoryDir` for every session on
+    the machine.
+  - The pointer is followed one hop, never chained; a loop is refused, and `kit_home: .` is just
+    the home. A target with no `memory-kit.conf`, or a `~` path, is a problem said plainly, never
+    a silent fall back.
+  - The home's own conf counts: `memory_dir` (relative to the home), `update:`, `upstream:`,
+    `watch_sources`, mode. The pointer conf's other keys are ignored and reported.
+  - The lint, `tools/kit-update.py` and `tools/obligations-due.py` follow it (`lint/kit_home.py`).
+    A pointer-only conf passes the lint when its home does. Fixtures `valid/kit-home-pointer`,
+    `invalid/kit-home-chained`, `invalid/kit-home-no-conf`. `lesson-index.py` takes a memory
+    directory, not a home, so it has nothing to follow.
+
 Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
 
 - **Lesson summary cut by ` #`** (finding 2). `link-a-ticket-with-a-url-file.md`'s unquoted
