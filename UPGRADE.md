@@ -83,6 +83,12 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   6 hours to look for a newer release; set `checkUpdates` off to stop it. A Windows home: check
   that an absolute `memoryDir` works (#8 is tested only on Linux).
 
+- **0.1.0-alpha.6 -> 0.1.0-alpha.7:** no data step. Pull, run the lint, `/reload-plugins`. New,
+  optional: the watch plugin (`claude plugin install watch@memory-kit`; see its README). Before
+  pointing it at an inbox, stop whatever drains that inbox today (a hub-drain Monitor, a script):
+  two drains would both rename the file aside and rewrite the same archive. Keep `retireOnIdle`
+  off until the notifications have run a while in your home.
+
 ## Always
 
 - The home's config for the kit lives outside the subtree; a pull must never clobber it.
