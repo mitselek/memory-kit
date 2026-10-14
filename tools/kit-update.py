@@ -18,7 +18,8 @@ What it does, and what it never does:
   - commits locally and NEVER pushes: each home's own push rule applies;
   - says when a plugin changed, so the session runs /reload-plugins.
 
-Exit: 0 updated or nothing to do, 1 refused or failed, 2 bad usage or setup.
+Exit: 0 updated or nothing to do, 1 refused or failed (and anything changed undone), 2 bad usage
+or setup, 3 the undo itself failed: the tree may be partly pulled (the message says how to recover).
 Kit #15. The kit-update plugin prompts a session to run this when a release appears.
 """
 import pathlib
@@ -27,6 +28,7 @@ import subprocess
 import sys
 
 DEFAULT_UPSTREAM = "https://codeberg.org/mitselek/memory-kit.git"
+EXIT_ROLLBACK_FAILED = 3
 TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$")
 PRE_RANK = {"alpha": 0, "beta": 1, "rc": 2, None: 3}
 
@@ -86,6 +88,20 @@ def data_steps_ok(upgrade_md, path):
         if not m.group(1).lower().startswith("no data step"):
             return f"{a} -> {b} has a data step: {m.group(1)[:80]}"
     return None
+
+
+def undo(home, start, why):
+    """Back to the commit the update started from. The exit code: 1 when the reset worked, or
+    EXIT_ROLLBACK_FAILED when it did not, said plainly with how to recover (ultrareview alpha.13, 4)."""
+    r = git(home, "reset", "--hard", start, check=False)
+    if r.returncode == 0:
+        say(f"{why}; the pull is undone (back to {start[:12]})")
+        return 1
+    say(f"{why}, AND the undo failed: the tree may be partly pulled.")
+    say(f"  git reset --hard {start} said: {r.stderr.strip()[:300]}")
+    say(f"  To recover: remove a stale .git/index.lock if no git is running, then run")
+    say(f"  `git -C {home} reset --hard {start}` and check `git -C {home} status` is clean.")
+    return EXIT_ROLLBACK_FAILED
 
 
 def lint_passes(home):
@@ -164,17 +180,14 @@ def main(argv):
     pull = git(home, "subtree", "pull", "--prefix=memory-kit", url, target, "--squash",
                "-m", msg, check=False)
     if pull.returncode != 0:
-        git(home, "reset", "--hard", start, check=False)
-        say(f"subtree pull failed, undone: {pull.stderr.strip()[:300]}")
-        return 1
+        return undo(home, start, f"subtree pull failed: {pull.stderr.strip()[:300]}")
     ok, out = lint_passes(home)
     if not ok:
-        git(home, "reset", "--hard", start, check=False)
         fails = [l for l in out.splitlines() if "FAIL" in l][:5]
-        say("the lint gate failed on the new version; the pull is undone:")
+        say("the lint gate failed on the new version:")
         for f in fails:
             print("   ", f.strip())
-        return 1
+        return undo(home, start, "the lint gate failed on the new version")
     plugins = git(home, "diff", "--name-only", start, "HEAD", "--", "memory-kit/adapters").stdout.split()
     say(f"updated {current} -> {target[1:]} ({channel}); lint gate passes; committed locally, not pushed")
     if plugins:

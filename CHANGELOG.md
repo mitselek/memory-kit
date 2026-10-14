@@ -15,6 +15,10 @@ Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
   its first hop, and with one release left, every check. The path now always starts at the
   home's current version; a missing UPGRADE.md entry for any hop refuses. New:
   `tools/kit-update-test.py` (stdlib unittest, a fake `subprocess.run`, no network, no git).
+- **kit-update.py says when its undo fails** (finding 4). After a failed pull or lint gate, the
+  `git reset --hard` back to the start was not checked, and the tool always said "undone". Now
+  a failed reset says the tree may be partly pulled and how to recover (a stale `index.lock`,
+  then `git reset --hard <start>`), and exits **3**, a code of its own.
 
 ## v0.1.0-alpha.13 -- 2026-10-14 -- kit updates: channels, the tool, the plugin
 

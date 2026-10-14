@@ -106,5 +106,21 @@ class Finding1CurrentVersionAlwaysOnThePath(unittest.TestCase):
         self.assertEqual(host.timeout_of("subtree"), [])
 
 
+class Finding4ARollbackThatFailsIsSaidPlainly(unittest.TestCase):
+    def test_a_failed_pull_whose_reset_works_is_undone_exit_1(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="fail"))
+        self.assertEqual(code, 1)
+        self.assertIn("subtree pull failed: conflict; the pull is undone (back to start123)", out)
+
+    def test_a_failed_pull_whose_reset_fails_says_so_and_exits_3(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="fail", reset_rc=128))
+        self.assertEqual(code, ku.EXIT_ROLLBACK_FAILED)
+        self.assertEqual(ku.EXIT_ROLLBACK_FAILED, 3)
+        self.assertNotIn("undone:", out)
+        self.assertIn("may be partly pulled", out)
+        self.assertIn("git reset --hard start123", out)
+        self.assertIn("index.lock", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
