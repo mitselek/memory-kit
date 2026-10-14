@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Fix: the kit's Python names UTF-8 on every read and write** (#13, reported by Pepys's desk
+  and framework-research). With no `encoding=`, Windows used the locale code page (cp1257 on
+  Estonian Windows) and crashed on the first `õ`. 22 call sites in `lint/` and `tools/`; writes
+  also pin `newline="\n"`. `run-fixtures.sh` now fails any file I/O without `encoding="utf-8"`,
+  and `valid/non-ascii` keeps a UTF-8 tree in the fixtures. The `-X utf8` / `PYTHONUTF8=1`
+  workarounds are no longer needed.
 ## v0.1.0-alpha.10 -- 2026-10-14 -- the watch shares a team inbox with the harness
 
 - **Watch 0.2.1: shared hub inboxes** (#12, reported by mvox; built by the workshop's agent,
