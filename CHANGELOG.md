@@ -21,6 +21,9 @@
 - **Tool: `tools/obligations-due.py`** -- the deadline horizon (expired, next N days, later).
   Honours `memory_dir`. Three homes had written it independently (household finding 13).
 - UPGRADE: the pane's option count is 3 from alpha.4 (#6).
+- **Types: the obligations layout readers accept** (#5), written above `ObligationsFile` in
+  `types/memory-obligations.ts`: the subset the pane reads, so a writer finds it where the shape is.
+  `yaml.safe_dump(..., sort_keys=False)` output is inside it. Text by the workshop.
 
 ## v0.1.0-alpha.5 -- 2026-10-14 -- pane stays on its home; never squash the subtree
 
