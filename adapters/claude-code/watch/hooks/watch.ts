@@ -363,15 +363,17 @@ export function base64Utf16le(text: string): string {
  */
 export function fileOpArgv(platform: Platform, f: FileOp): string[] {
   if ('path' in f) {
-    if (platform === 'posix') return f.op === 'remove' ? ['rm', '-f', '--', f.path] : [f.op === 'lock' ? 'mkdir' : 'rmdir', '--', f.path]
+    // remove and unlock are quiet when the target is already gone (another session, or the
+    // harness breaking a stale lock), and still fail on a real failure. rmdir is not quiet, so
+    // the unlock is rm -d -f; on Windows, under Stop, even -ErrorAction SilentlyContinue fails
+    // on a missing path (kit #11), so the removal is guarded by Test-Path.
+    if (platform === 'posix') return f.op === 'remove' ? ['rm', '-f', '--', f.path] : f.op === 'lock' ? ['mkdir', '--', f.path] : ['rm', '-d', '-f', '--', f.path]
     const path = psQuote(f.path)
     return powershell(
-      f.op === 'remove'
-        ? `Remove-Item -LiteralPath ${path} -Force -ErrorAction SilentlyContinue`
-        : f.op === 'lock'
-          ? // New-Item has no -LiteralPath; it fails when the directory exists, which the lock needs.
-            `New-Item -ItemType Directory -Path ${path} | Out-Null`
-          : `Remove-Item -LiteralPath ${path} -Force`,
+      f.op === 'lock'
+        ? // New-Item has no -LiteralPath; it fails when the directory exists, which the lock needs.
+          `New-Item -ItemType Directory -Path ${path} | Out-Null`
+        : `if (Test-Path -LiteralPath ${path}) { Remove-Item -LiteralPath ${path} -Force }`,
     )
   }
   if (platform === 'posix') {

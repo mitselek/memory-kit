@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { CWD, decodeUtf16le, HOME, SESSION, typed, worldOf } from './fixtures/world'
+import { CLIXML, CWD, decodeUtf16le, HOME, SESSION, typed, worldOf } from './fixtures/world'
 import type { World } from './fixtures/world'
 
 const NOW = Date.parse('2026-10-14T12:00:00Z')
@@ -352,7 +352,8 @@ describe('Windows (kit alpha.9)', () => {
     expect(asides(world)).toEqual([])
     expect(world.commands[0]).toEqual(['uname', '-s'])
     expect(world.commands.slice(1).every(c => c[0] === 'powershell.exe')).toBe(true)
-    expect(scripts(world).map(s => s.split(' -')[0])).toEqual(['Move-Item', 'Move-Item', 'Move-Item', 'Remove-Item', 'Move-Item', 'Remove-Item'])
+    const cmdlet = (s: string) => (s.startsWith('if (Test-Path ') ? 'guarded Remove-Item' : s.split(' -')[0])
+    expect(scripts(world).map(cmdlet)).toEqual(['Move-Item', 'Move-Item', 'Move-Item', 'guarded Remove-Item', 'Move-Item', 'guarded Remove-Item'])
   })
 
   test('the put-back never replaces a newer inbox (Move-Item without -Force)', async ($, on) => {
@@ -384,6 +385,51 @@ describe('Windows (kit alpha.9)', () => {
     await $.session.start(SESSION)
     await clock.advance(0)
     expect(world.submitted).toEqual(['[kaarel] hi'])
+  })
+})
+
+describe('a file already gone counts as removed (kit #11)', () => {
+  const failures = (world: World) => world.logs.filter(l => / failed: /.test(l))
+
+  for (const platform of ['posix', 'windows'] as const) {
+    test(`${platform}: a pending file another session already finished is removed quietly`, async ($, on) => {
+      const world = worldOf(on, { 'memory-kit.conf': CONF, [HUB]: hub({ from: 'po', text: 'only' }) }, {}, { HOME }, platform)
+      world.hold = true
+      const clock = mock.clock(on, { now: NOW })
+      await $.session.start(SESSION)
+      await clock.advance(5_000)
+      // While our submit waits for its turn, another session delivers the same pending file and removes it.
+      for (const f of asides(world)) world.files.delete(f)
+      world.release()
+      await clock.advance(5_000)
+      expect(world.submitted).toEqual(['[hub mail] from po [2026-10-14T08:00:00Z]: only'])
+      expect(failures(world)).toEqual([])
+    })
+
+    test(`${platform}: a lock the harness already broke is released quietly`, async ($, on) => {
+      const team = `${HOME}/.claude/teams/session-ab12/inboxes/team-lead.json`
+      const conf = `watch_sources:\n  - "hub mail | hub unread courier | ${team}"\n`
+      const world = worldOf(on, { 'memory-kit.conf': conf, [team]: JSON.stringify([{ from: 'hub-courier', text: 'x', timestamp: 't' }]) }, {}, { HOME }, platform)
+      world.lockVanishes = true
+      const clock = mock.clock(on, { now: NOW })
+      await $.session.start(SESSION)
+      await clock.advance(35_000)
+      expect(world.submitted).toHaveLength(1)
+      expect(failures(world)).toEqual([])
+    })
+  }
+
+  test('windows: CLIXML progress records on stderr with exit 0 are a success', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [HUB]: hub({ from: 'po', text: 'first' }, { from: 'po', text: 'second' }) }, {}, { HOME }, 'windows')
+    world.clixml = true
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toHaveLength(2)
+    expect(world.files.has(HUB)).toBe(false)
+    expect(asides(world)).toEqual([])
+    expect(failures(world)).toEqual([])
+    expect(CLIXML.startsWith('#< CLIXML')).toBe(true)
   })
 })
 

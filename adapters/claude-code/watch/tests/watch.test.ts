@@ -304,8 +304,9 @@ describe('platform: the four file operations (kit alpha.9)', () => {
     expect(script(fileOpArgv('windows', { op: 'move-replace', from, to }))).toBe(
       `$ErrorActionPreference = 'Stop'; Move-Item -LiteralPath ${q(from)} -Destination ${q(to)} -Force`,
     )
+    // Under Stop a missing file fails even with -ErrorAction SilentlyContinue (kit #11): test first.
     expect(script(fileOpArgv('windows', { op: 'remove', path: from }))).toBe(
-      `$ErrorActionPreference = 'Stop'; Remove-Item -LiteralPath ${q(from)} -Force -ErrorAction SilentlyContinue`,
+      `$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath ${q(from)}) { Remove-Item -LiteralPath ${q(from)} -Force }`,
     )
   })
 
@@ -378,10 +379,11 @@ describe('a shared inbox: take only courier mail, unread (kit #12)', () => {
     expect(STALE_LOCK_MS).toBe(60_000)
   })
 
-  test("the harness's lock: mkdir / rmdir; on Windows New-Item / Remove-Item", () => {
+  test("the harness's lock: mkdir / rm -d -f; on Windows New-Item / a guarded Remove-Item", () => {
     const lock = '/c/My Inbox [x]/team-lead.json.lock'
     expect(fileOpArgv('posix', { op: 'lock', path: lock })).toEqual(['mkdir', '--', lock])
-    expect(fileOpArgv('posix', { op: 'unlock', path: lock })).toEqual(['rmdir', '--', lock])
+    // rm -d -f: the empty lock directory, and quiet when it is already gone (rmdir is not).
+    expect(fileOpArgv('posix', { op: 'unlock', path: lock })).toEqual(['rm', '-d', '-f', '--', lock])
     const decode = (argv: string[]) => {
       const bin = atob(argv[argv.length - 1] ?? '')
       let out = ''
@@ -392,7 +394,7 @@ describe('a shared inbox: take only courier mail, unread (kit #12)', () => {
       `$ErrorActionPreference = 'Stop'; New-Item -ItemType Directory -Path ${psQuote(lock)} | Out-Null`,
     )
     expect(decode(fileOpArgv('windows', { op: 'unlock', path: lock }))).toBe(
-      `$ErrorActionPreference = 'Stop'; Remove-Item -LiteralPath ${psQuote(lock)} -Force`,
+      `$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath ${psQuote(lock)}) { Remove-Item -LiteralPath ${psQuote(lock)} -Force }`,
     )
   })
 })
