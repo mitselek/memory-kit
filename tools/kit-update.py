@@ -69,6 +69,14 @@ def upstream_url(value):
     raise ValueError(f"unusable upstream: {value}")
 
 
+def step_path(current, releases, target):
+    """The versions to walk, from the home's current version to the target: the current version
+    always first, even when its tag is gone upstream, then every release tag after it up to the
+    target. So the current -> first-release hop is always checked (ultrareview alpha.13, 1)."""
+    cur = key("v" + current)
+    return [current] + [t[1:] for t in releases if cur < key(t) <= key(target)]
+
+
 def data_steps_ok(upgrade_md, path):
     """Each step along the path must have an UPGRADE.md entry that begins 'no data step'."""
     for a, b in zip(path, path[1:]):
@@ -142,7 +150,7 @@ def main(argv):
 
     git(home, "fetch", "--no-tags", "--quiet", url, f"refs/tags/{target}")
     upgrade_md = git(home, "show", "FETCH_HEAD:UPGRADE.md").stdout
-    path = [t[1:] for t in releases if key(cur_tag) <= key(t) <= key(target)]
+    path = step_path(current, releases, target)
     refusal = data_steps_ok(upgrade_md, path)
     if refusal:
         say(f"refused: {refusal}. Upgrade by hand per UPGRADE.md.")

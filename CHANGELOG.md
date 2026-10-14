@@ -10,6 +10,11 @@ Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
   summary whose plain value holds ` #` fails, read from the raw front matter (the parsed value has
   already lost it). Fixture `invalid/lesson-unquoted-hash`. Only `summary`: the short fields may
   carry a deliberate trailing comment, which raw text cannot tell from a cut value.
+- **kit-update.py checks the hop from the home's own version** (finding 1). The step path was
+  built from upstream tags alone, so a home whose own tag is gone upstream skipped the check of
+  its first hop, and with one release left, every check. The path now always starts at the
+  home's current version; a missing UPGRADE.md entry for any hop refuses. New:
+  `tools/kit-update-test.py` (stdlib unittest, a fake `subprocess.run`, no network, no git).
 
 ## v0.1.0-alpha.13 -- 2026-10-14 -- kit updates: channels, the tool, the plugin
 
