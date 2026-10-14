@@ -141,7 +141,16 @@ function recordOf(value: unknown): PromptRecord | undefined {
  * delivered. A refused submit keeps the claim, refreshed each tick, and retries with backoff; a
  * claim left CLAIM_STALE_MS (its session gone) is taken over.
  */
-async function offer($: EngineInterface, target: string, channel: Channel, current: string, home: string, upstream: string | undefined, settings: Settings): Promise<void> {
+async function offer(
+  $: EngineInterface,
+  target: string,
+  channel: Channel,
+  current: string,
+  home: string,
+  upstream: string | undefined,
+  releases: readonly string[],
+  settings: Settings,
+): Promise<void> {
   const key = promptKey(target)
   const now = await $.clock.now()
   const rec = recordOf(await $.store.get(key))
@@ -163,7 +172,7 @@ async function offer($: EngineInterface, target: string, channel: Channel, curre
     }
     upgradeTexts.set(target, md)
   }
-  const steps = stepCheck(md, current, target)
+  const steps = stepCheck(md, current, target, releases)
 
   if (!ours) {
     await $.store.set(key, { state: 'claimed', token, at: now })
@@ -217,7 +226,7 @@ async function tick($: EngineInterface, settings: Settings): Promise<void> {
     const mine = parseRelease(h.version)
     const theirs = target === undefined ? undefined : parseRelease(target)
     if (target === undefined || mine === undefined || theirs === undefined || compareRelease(theirs, mine) <= 0) return
-    await offer($, target, h.channel, h.version, h.home, h.upstream, settings)
+    await offer($, target, h.channel, h.version, h.home, h.upstream, names, settings)
   } catch (err) {
     $.ui.log(`kit-update: check failed: ${String(err)}`, { to: 'debug' })
   } finally {

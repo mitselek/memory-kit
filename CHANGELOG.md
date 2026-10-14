@@ -23,6 +23,12 @@ Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
   no timeout and could hang on a stalled remote. Both now stop at 300 s (`NETWORK_TIMEOUT`): a
   timeout is a failure; a timed-out pull goes through the undo, and a timed-out fetch changes
   nothing. git never waits on a credential prompt (`GIT_TERMINAL_PROMPT=0`).
+- **The kit-update plugin decides as the script does** (finding 3). Its auto/manual check
+  required only an UPGRADE.md entry ending at the target, so it could promise a run the script
+  then refused. It now walks the script's path (the home's version, always, then every release
+  tag up to the target) and needs an entry beginning "no data step" for each hop; otherwise
+  "manual upgrade needed (UPGRADE.md has no entry for A -> B)". The plugin's version is unchanged
+  (0.1.0); the household versions it with the release.
 
 ## v0.1.0-alpha.13 -- 2026-10-14 -- kit updates: channels, the tool, the plugin
 

@@ -54,15 +54,22 @@ Only release-shaped tags count, compared by semver precedence (alpha.10 > alpha.
 ## Auto or manual
 
 Before prompting, the plugin reads `UPGRADE.md` at the release tag
-(`/raw/UPGRADE.md?ref=v<version>`). It checks every per-version step
-(`- **A -> B:** ...`) between the home's version and the target.
+(`/raw/UPGRADE.md?ref=v<version>`). It decides the way `tools/kit-update.py` does, so a prompt
+never promises a run the script then refuses (since the ultrareview of alpha.13):
 
-- **Auto:** each step says "no data step", the target has a step, and the major is the same.
-  The prompt says to run `python3 memory-kit/tools/kit-update.py <home>`, the home path
-  quoted as one shell word.
-- **Manual:** otherwise. The prompt says "manual upgrade needed (<reason>)" and points at
-  `UPGRADE.md`, not the script. The script refuses such a release anyway; this only words the
-  prompt.
+- **The path** is the home's current version, then every release tag upstream after it, up to
+  the target. The current version is always first, even when its own tag is gone upstream. The
+  release list is the tags the check already has.
+- **Each hop** `A -> B` along it needs its own entry `**A -> B:**` whose text begins "no data
+  step". An entry that spans two hops does not cover the release between them.
+
+The outcome:
+
+- **Auto:** every hop has such an entry and the major is the same. The prompt says to run
+  `python3 memory-kit/tools/kit-update.py <home>`, the home path quoted as one shell word.
+- **Manual:** otherwise: a missing entry ("UPGRADE.md has no entry for A -> B"), a data step, or
+  a new major. The prompt says "manual upgrade needed (<reason>)" and points at `UPGRADE.md`,
+  not the script. The script refuses such a release anyway; this only words the prompt.
 
 If UPGRADE.md cannot be fetched, nothing is prompted yet. It is tried again one interval later.
 
