@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- UPGRADE: the pane's option count is 4 from alpha.6 (`checkUpdates`).
+
 ## v0.1.0-alpha.6 -- 2026-10-14 -- the pane knows its kit; docs keep their promises
 
 - **Pane 0.3.0** (built by the workshop's pane agent; 81/81 tests):

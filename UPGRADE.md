@@ -57,7 +57,7 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   memory; run the lint to confirm. New, optional: the Claude Code obligations pane. From the home
   root: `claude plugin marketplace add ./memory-kit/adapters/claude-code`, then
   `claude plugin install obligations-pane@memory-kit`. The install notes "N userConfig options
-  not yet set" (2 at alpha.3; 3 from alpha.4, when `memoryDir` arrived): harmless, the defaults
+  not yet set" (2 at alpha.3; 3 from alpha.4 with `memoryDir`; 4 from alpha.6 with `checkUpdates`): harmless, the defaults
   apply (agent name = the folder's name; no memoryDir; auto-open where an obligations file exists). A session whose working folder is not the home root: put a
   `memory-kit.conf` there with an absolute `memory_dir` (po-team's setup). Superseded in
   alpha.4: use the pane's `memoryDir` option instead.
