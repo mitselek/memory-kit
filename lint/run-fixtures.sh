@@ -66,7 +66,8 @@ fi
 
 # Every file read and write in the kit's Python names its encoding (kit #13): with none, Windows
 # uses the locale code page (cp1257 on Estonian Windows) and crashes on the first UTF-8 letter.
-bare=$(grep -nE "\.(read_text|write_text)\(|[^a-z_]open\(" "$KIT"/lint/*.py "$KIT"/tools/*.py | grep -v 'encoding="utf-8"' || true)
+# The watch's spool poller (kit #16) runs on the Windows desks too. Popen is not open.
+bare=$(grep -nE "\.(read_text|write_text)\(|[^A-Za-z_]open\(" "$KIT"/lint/*.py "$KIT"/tools/*.py "$KIT"/adapters/claude-code/watch/spool/*.py | grep -v 'encoding="utf-8"' || true)
 if [ -n "$bare" ]; then
   fail=$((fail+1)); echo "NO ENCODING      file I/O without encoding=\"utf-8\":"; printf '%s\n' "$bare" | sed 's/^/    /'
 else
