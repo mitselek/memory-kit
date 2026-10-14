@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 
+# Loading kit-update.py must leave nothing behind in tools/ (no __pycache__).
+sys.dont_write_bytecode = True
 HERE = pathlib.Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("kit_update", HERE / "kit-update.py")
 ku = importlib.util.module_from_spec(spec)
