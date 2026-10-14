@@ -219,6 +219,68 @@ describe('notifications: drain and deliver', () => {
   })
 })
 
+describe('kit_home: the start folder points at the home (kit #18)', () => {
+  const DESK = '/home/u/desk'
+  const DESK_CONF = 'watch_sources:\n  - "doorbell | lines | spool.txt"\n'
+
+  test('a pointer conf: sources come from the home it names, paths relative to that home', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'kit_home: ../desk\n', [`${DESK}/memory-kit.conf`]: DESK_CONF, [`${DESK}/spool.txt`]: 'ring\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toEqual(['[doorbell] ring'])
+    expect(world.files.has(`${DESK}/archive/spool.txt`)).toBe(true)
+  })
+
+  test('the pointer wins over a user-scope home option', { options: { home: '/home/u/elsewhere' } }, async ($, on) => {
+    const world = worldOf(on, {
+      'memory-kit.conf': 'kit_home: ../desk\n',
+      [`${DESK}/memory-kit.conf`]: DESK_CONF,
+      [`${DESK}/spool.txt`]: 'ring\n',
+      '/home/u/elsewhere/memory-kit.conf': 'watch_sources:\n  - "other | lines | spool.txt"\n',
+      '/home/u/elsewhere/spool.txt': 'not for this session\n',
+    })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toEqual(['[doorbell] ring'])
+    expect(world.files.get('/home/u/elsewhere/spool.txt')).toBe('not for this session\n')
+  })
+
+  test('a broken pointer: one visible notice, nothing drained, the start folder not used instead', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'kit_home: ../nowhere\nwatch_sources:\n  - "local | lines | spool.txt"\n', 'spool.txt': 'x\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(30_000)
+    expect(world.notified).toEqual([expect.stringContaining('no memory-kit.conf there')])
+    expect(world.submitted).toEqual([])
+    expect(world.files.get(`${CWD}/spool.txt`)).toBe('x\n')
+  })
+
+  test('watch_sources left in a pointer conf are ignored, and said so', async ($, on) => {
+    const world = worldOf(on, {
+      'memory-kit.conf': 'kit_home: ../desk\nwatch_sources:\n  - "local | lines | spool.txt"\n',
+      [`${DESK}/memory-kit.conf`]: 'watch_sources: []\n',
+      'spool.txt': 'x\n',
+    })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(10_000)
+    expect(world.submitted).toEqual([])
+    expect(world.notified).toEqual([expect.stringMatching(/watch_sources .*ignored.*desk\/memory-kit\.conf/)])
+  })
+
+  test('/watch names the home and the pointer', async ($, on) => {
+    worldOf(on, { 'memory-kit.conf': 'kit_home: ../desk\n', [`${DESK}/memory-kit.conf`]: DESK_CONF })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toContain(`home: ${DESK} (kit_home in ${CWD}/memory-kit.conf)`)
+    expect(text).toContain('1 source active')
+  })
+})
+
 describe('never idle silently (kit #14)', () => {
   test("mvox's one-line flow list is read, and its mail delivered", async ($, on) => {
     const conf = 'watch_sources: ["hub mail | hub | comms/inboxes/team-lead.json", \'kaarel | lines | ~/spool/kaarel.txt\']\n'

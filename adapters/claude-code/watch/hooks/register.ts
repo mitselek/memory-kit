@@ -39,6 +39,8 @@ import {
   takes,
 } from './watch'
 import type { FileOp, Item, Platform, Source, SourceList, Take } from './watch'
+import { resolveKitHome } from './kit-home'
+import type { KitHome } from './kit-home'
 
 const startCwd = atom({ plugin: 'watch', key: 'startCwd' } as const, '')
 const askedAt = atom({ plugin: 'watch', key: 'askedAt' } as const, 0)
@@ -78,9 +80,37 @@ async function readOrEmpty($: EngineInterface, path: string): Promise<string> {
   }
 }
 
-async function homeOf($: EngineInterface, settings: Settings): Promise<string> {
+/** A file's text, undefined when it is missing or unreadable. */
+async function readMaybe($: EngineInterface, path: string): Promise<string | undefined> {
+  try {
+    return (await $.fs.exists(path)) ? await $.fs.read(path) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The kit home (kit #18). The start folder's memory-kit.conf decides first: a `kit_home:` pointer
+ * names the home, one hop, and wins over the user-scope `home` option, which applies to every
+ * session on the machine. Without a pointer, the option, else the start folder.
+ */
+async function homeOf($: EngineInterface, settings: Settings): Promise<KitHome> {
   const start = (await read($, startCwd)) || (await $.session.cwd())
-  return settings.home === '' ? start : (expandHome(settings.home, start, '') ?? start)
+  const found = await resolveKitHome(start, p => readMaybe($, p))
+  if ('problem' in found || found.pointer !== undefined || settings.home === '') return found
+  return { home: expandHome(settings.home, start, '') ?? start, ignored: [] }
+}
+
+/** The home, or one visible notice when the pointer is broken; also when it leaves watch_sources behind. */
+async function usableHome($: EngineInterface, settings: Settings): Promise<string | undefined> {
+  const found = await homeOf($, settings)
+  if ('problem' in found) {
+    await tellOnce($, `${found.problem}. The watch delivers nothing until it is fixed.`)
+    return undefined
+  }
+  if (found.pointer !== undefined && found.ignored.includes('watch_sources'))
+    await tellOnce($, `watch_sources in ${found.pointer} are ignored: that conf points at the home (kit_home), and they count in ${found.home}/memory-kit.conf.`)
+  return found.home
 }
 
 const dirOf = (path: string) => path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')))
@@ -484,9 +514,11 @@ async function tellOnce($: EngineInterface, text: string): Promise<void> {
 
 /** What /watch answers: the sources active now, what was skipped and why, the retire switch. */
 async function status($: EngineInterface, settings: Settings): Promise<string> {
-  const home = await homeOf($, settings)
+  const found = await homeOf($, settings)
+  if ('problem' in found) return `${found.problem}.\nThe watch delivers nothing until it is fixed.`
+  const home = found.home
   const d = await declaredIn($, home, await readOrEmpty($, `${home}/memory-kit.conf`))
-  const lines: string[] = []
+  const lines: string[] = [`home: ${home}${found.pointer !== undefined ? ` (kit_home in ${found.pointer})` : ''}`]
   if (!d.list.declared) lines.push(`no watch_sources in ${d.confPath}; nothing to watch.`)
   else {
     const n = d.active.length
@@ -506,7 +538,8 @@ async function tick($: EngineInterface, settings: Settings): Promise<void> {
   if (polling) return
   polling = true
   try {
-    const home = await homeOf($, settings)
+    const home = await usableHome($, settings)
+    if (home === undefined) return
     homeHint = home
     const conf = await readOrEmpty($, `${home}/memory-kit.conf`)
     const declared = await declaredIn($, home, conf)

@@ -73,5 +73,20 @@ else
   pass=$((pass+1))
 fi
 
+# The three plugins each carry a copy of the kit_home rules and their test (kit #18): a plugin
+# loads only its own folder. The copies must stay identical, or the plugins disagree on the home.
+AD="$KIT/adapters/claude-code"
+drift=
+for f in hooks/kit-home.ts tests/kit-home.test.ts; do
+  for p in obligations-pane kit-update; do
+    cmp -s "$AD/watch/$f" "$AD/$p/$f" || drift="$drift $p/$f"
+  done
+done
+if [ -n "$drift" ]; then
+  fail=$((fail+1)); echo "COPIES DIFFER    kit_home copies differ from watch/:$drift"
+else
+  pass=$((pass+1))
+fi
+
 echo "fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

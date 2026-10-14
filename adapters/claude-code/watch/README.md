@@ -15,8 +15,9 @@ It has two jobs, both on one timer (`pollSeconds`, default 5):
 
 ## Sources
 
-They are declared per home in `<home>/memory-kit.conf`. `<home>` is the `home` option, else the
-directory the session started in. The lint ignores keys it does not know.
+They are declared per home in `<home>/memory-kit.conf`. `<home>` is the home a `kit_home`
+pointer in the start folder's conf names (see below), else the `home` option, else the directory
+the session started in. The lint ignores keys it does not know.
 
 ```yaml
 watch_sources:
@@ -142,10 +143,36 @@ The five guards (PO comment on #9, 2026-10-14). Each has its own tests:
 A notice goes through `$.ui.notify`. Where that shows no text (no channel, as in tmux, or a bare
 bell), it also goes to the transcript as a dim line.
 
+## A session outside its home: `kit_home` (kit #18)
+
+**User-scope options apply to every session on the machine.** That covers `home` set in the
+user's settings, not only the home's own sessions. On the pepys desk a user-wide `home` made
+every session on the box drain the desk's spool, and six notifications were lost. Use a pointer
+conf instead: put this in the folder the session starts in:
+
+```yaml
+kit_home: ../desk        # absolute, or relative to this conf's own folder
+```
+
+- **What counts:** the home it names. That home's `memory-kit.conf` counts (`watch_sources`, `watch_retire_step`), with paths
+  relative to that home, and so does its `memory-kit/VERSION`. Other keys left in the pointer
+  conf are ignored, and `watch_sources` left there are a visible notice.
+- **Precedence:** the start folder's pointer first. It wins over the user-scope `home` option. Then
+  the option, then the start folder itself.
+- **One hop, never chained.** If the target's own conf points on, that is refused, and so is a
+  loop. `kit_home: .` is just the home.
+- **Absolute paths:** POSIX, a drive letter (`C:\` or `C:/`) or UNC. `~` is not expanded: write
+  the path absolute or relative to the conf.
+- **Never silent:** a target with no `memory-kit.conf`, a chained pointer or a `~` path is one visible notice (notify, else a transcript line), and the watch drains nothing. It never falls back to the start folder. `/watch` names the home and the pointer.
+- The lint and the tools follow the same pointer (`lint/kit_home.py`). This plugin's copy of the
+  rules is `hooks/kit-home.ts`, identical in all three plugins; `lint/run-fixtures.sh` fails when
+  the copies differ.
+
 ## Options (`userConfig`)
 
 - `home`: the kit home whose `memory-kit.conf` declares the sources. Empty: the session's start
-  directory.
+  directory. **Set user-wide, it applies to every session on the machine**: prefer a `kit_home`
+  pointer conf (above), which also wins over this option.
 - Setting options from a shell: `claude plugin configure watch@memory-kit --values-stdin` takes
   a JSON object of **strings only**, e.g. `{"pollSeconds": "5", "retireOnIdle": "false"}`;
   bare numbers and booleans are refused (found by mvox, 2026-10-14).

@@ -108,10 +108,37 @@ So: the first session to check after the release appears gets the prompt.
 A crash between an accepted submit and the `delivered` write can prompt that release twice. It
 cannot lose it.
 
+## A session outside its home: `kit_home` (kit #18)
+
+**User-scope options apply to every session on the machine.** That covers `home` set in the
+user's settings, not only the home's own sessions. On the pepys desk a user-wide `home` made
+every session on the box drain the desk's spool, and six notifications were lost. Use a pointer
+conf instead: put this in the folder the session starts in:
+
+```yaml
+kit_home: ../desk        # absolute, or relative to this conf's own folder
+```
+
+- **What counts:** the home it names. That home's `memory-kit.conf` counts (`update:`, `upstream:`), with paths
+  relative to that home, and so does its `memory-kit/VERSION`. Other keys left in the pointer
+  conf are ignored, and `update:` or `upstream:` left there are a visible notice.
+- **Precedence:** the start folder's pointer first. It wins over the user-scope `home` option. Then
+  the option, then the start folder itself.
+- **One hop, never chained.** If the target's own conf points on, that is refused, and so is a
+  loop. `kit_home: .` is just the home.
+- **Absolute paths:** POSIX, a drive letter (`C:\` or `C:/`) or UNC. `~` is not expanded: write
+  the path absolute or relative to the conf.
+- **Never silent:** a broken pointer, or a pointed home without `memory-kit/VERSION`, is one visible notice (notify, else a transcript line), and nothing is checked. `/kit-update` names the home and the pointer.
+- The lint and the tools follow the same pointer (`lint/kit_home.py`). This plugin's copy of the
+  rules is `hooks/kit-home.ts`, identical in all three plugins; `lint/run-fixtures.sh` fails when
+  the copies differ.
+
 ## Options (`userConfig`)
 
 - `home`: the kit home, whose `memory-kit.conf` and `memory-kit/VERSION` count. Empty: the
-  session's start directory. Use it for a session that runs outside its home.
+  session's start directory. **Set user-wide, it applies to every session on the machine**, so
+  the prompt could land in any of them: prefer a `kit_home` pointer conf (above), which also
+  wins over this option.
 - `checkMinutes` (60, at least 5): how often upstream is asked, across all sessions.
 - `checkUpdates` (on): off makes no request at all.
 

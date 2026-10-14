@@ -21,6 +21,8 @@ import {
   upgradeUrl,
 } from './release'
 import type { Channel } from './release'
+import { isAbsolute, resolveKitHome } from './kit-home'
+import type { KitHome } from './kit-home'
 
 const MINUTE = 60_000
 /** The local tick: cheap (store and file reads); upstream is asked only once per checkMinutes. */
@@ -61,10 +63,16 @@ async function readOrEmpty($: EngineInterface, path: string): Promise<string> {
   }
 }
 
-async function homeOf($: EngineInterface, settings: Settings): Promise<string> {
-  const cwd = await $.session.cwd()
-  if (settings.home === '') return startCwd || cwd
-  return /^(\/|[A-Za-z]:[\\/]|\\\\)/.test(settings.home) ? settings.home : `${startCwd || cwd}/${settings.home}`
+/**
+ * The kit home (kit #18). The start folder's memory-kit.conf decides first: a `kit_home:` pointer
+ * names the home, one hop, and wins over the user-scope `home` option, which applies to every
+ * session on the machine. Without a pointer, the option, else the start folder.
+ */
+async function homeOf($: EngineInterface, settings: Settings): Promise<KitHome> {
+  const start = startCwd || (await $.session.cwd())
+  const found = await resolveKitHome(start, async p => ((await $.fs.exists(p)) ? $.fs.read(p) : undefined))
+  if ('problem' in found || found.pointer !== undefined || settings.home === '') return found
+  return { home: isAbsolute(settings.home) ? settings.home : `${start}/${settings.home}`, ignored: [] }
 }
 let startCwd = ''
 
@@ -203,10 +211,14 @@ async function offer(
 
 /** What the home declares and holds now. */
 async function homeState($: EngineInterface, settings: Settings) {
-  const home = await homeOf($, settings)
-  const conf = await readOrEmpty($, `${home}/memory-kit.conf`)
-  const version = kitVersionOf(await readOrEmpty($, `${home}/memory-kit/VERSION`))
-  return { home, conf, version, ...channelOf(conf), upstream: confValue(conf, 'upstream') }
+  const found = await homeOf($, settings)
+  const pointerProblem = 'problem' in found ? found.problem : undefined
+  const home = 'problem' in found ? '' : found.home
+  const pointer = found.pointer
+  const ignored = 'problem' in found ? [] : found.ignored
+  const conf = pointerProblem !== undefined ? '' : await readOrEmpty($, `${home}/memory-kit.conf`)
+  const version = pointerProblem !== undefined ? undefined : kitVersionOf(await readOrEmpty($, `${home}/memory-kit/VERSION`))
+  return { home, pointer, pointerProblem, ignored, conf, version, ...channelOf(conf), upstream: confValue(conf, 'upstream') }
 }
 
 async function tick($: EngineInterface, settings: Settings): Promise<void> {
@@ -214,6 +226,19 @@ async function tick($: EngineInterface, settings: Settings): Promise<void> {
   checking = true
   try {
     const h = await homeState($, settings)
+    if (h.pointerProblem !== undefined) {
+      await tellOnce($, `${h.pointerProblem}. Nothing is checked until it is fixed.`)
+      return
+    }
+    if (h.pointer !== undefined) {
+      const lost = h.ignored.filter(k => k === 'update' || k === 'upstream')
+      if (lost.length > 0)
+        await tellOnce($, `${lost.join(' and ')} in ${h.pointer} ${lost.length === 1 ? 'is' : 'are'} ignored: that conf points at the home (kit_home), and ${lost.length === 1 ? 'it counts' : 'they count'} in ${h.home}/memory-kit.conf.`)
+      if (h.version === undefined) {
+        await tellOnce($, `${h.home} has no memory-kit/VERSION, though kit_home in ${h.pointer} names it as the kit home; nothing is checked.`)
+        return
+      }
+    }
     if (h.problem !== undefined) await tellOnce($, `${h.home}/memory-kit.conf: ${h.problem}.`)
     if (!settings.checkUpdates || h.channel === 'pinned' || h.version === undefined) return
     if (tagsUrl(h.upstream, 1) === undefined) {
@@ -237,7 +262,9 @@ async function tick($: EngineInterface, settings: Settings): Promise<void> {
 /** What /kit-update answers. */
 async function status($: EngineInterface, settings: Settings): Promise<string> {
   const h = await homeState($, settings)
-  const lines = [`channel: ${h.channel}${h.problem !== undefined ? ` (${h.problem})` : ''}`, `this home: ${h.version ?? 'no memory-kit/VERSION'} (${h.home})`]
+  if (h.pointerProblem !== undefined) return `${h.pointerProblem}.\nNothing is checked until it is fixed.`
+  const via = h.pointer !== undefined ? `, by kit_home in ${h.pointer}` : ''
+  const lines = [`channel: ${h.channel}${h.problem !== undefined ? ` (${h.problem})` : ''}`, `this home: ${h.version ?? 'no memory-kit/VERSION'} (${h.home}${via})`]
   if (h.channel === 'pinned') {
     lines[0] += ' -- no checks; set update: verified or latest in memory-kit.conf to follow releases'
     return lines.join('\n')

@@ -15,6 +15,12 @@
     A pointer-only conf passes the lint when its home does. Fixtures `valid/kit-home-pointer`,
     `invalid/kit-home-chained`, `invalid/kit-home-no-conf`. `lesson-index.py` takes a memory
     directory, not a home, so it has nothing to follow.
+  - All three plugins follow it the same way (`hooks/kit-home.ts`, one identical copy each; the
+    fixture run fails when the copies differ). The start folder's pointer wins over the user-scope
+    `home` (watch, kit-update) and `memoryDir` (pane), which the READMEs now say apply to every
+    session on the machine. A broken pointer is visible in each: a notice (watch, kit-update),
+    the pane's body (pane). A pointed home without VERSION shows `memory-kit ?` (pane), or is a
+    notice (kit-update). Keys left in a pointer conf that a plugin reads are reported as ignored.
 
 Fixes from the ultrareview of main at v0.1.0-alpha.13 (to ship in alpha.14):
 
