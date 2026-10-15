@@ -130,8 +130,8 @@ are looking for.
 
 ## Tooling (ruled 2026-09-21)
 
-Parsing and schema generation: **python3 + PyYAML**. Line-shaped checks (row and char caps):
-**awk**. Nothing else -- no `yq` (not present by default, and two different programs share the
+Parsing and schema generation: **python3 + PyYAML**, Python 3.9 or newer (macOS's system python3
+is 3.9; kit #34). Line-shaped checks (row and char caps): **awk**. Nothing else -- no `yq` (not present by default, and two different programs share the
 name), no node (nvm installs sit outside the systemd/cron PATH, and the lint must run from cron).
 
 The lint fails closed with a one-line install hint when PyYAML is missing; it never silently

@@ -139,6 +139,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   - A session whose start folder has no `memory-kit.conf` now gets one kit-update notice saying so
     (#31). If the home is elsewhere, add a one-line pointer conf there: `kit_home: <path>`.
 
+- **0.1.0-alpha.15 -> 0.1.0-alpha.16:** no data step. Pull, lint.
+  - A home on Python 3.9 (macOS's system python3) can run `tools/lesson-index.py` again (#34).
+    Nothing to do; if it skipped regenerating its index because of the crash, run it now.
+
 ## Always
 
 - The home's config for the kit lives outside the subtree; a pull must never clobber it.

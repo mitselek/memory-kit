@@ -1,9 +1,29 @@
 # Changelog
 
+## Unreleased
+
+- **Python 3.9: the tools write without `Path.write_text(newline=)`** (#34, mac-sysops). That
+  keyword is Python 3.10+, so on macOS's system Python 3.9.6 `tools/lesson-index.py` crashed at
+  both its writes (the index, and front matter under `--from-index`): a 3.9 home could not
+  regenerate its lesson index. `tools/extract-caps.py` crashed the same way (release side).
+  - Both now write through `open(..., encoding="utf-8", newline="\n")`: UTF-8 and LF on every
+    platform, as before.
+  - `tools/write-paths-test.py` runs each write for real into a temporary folder (UTF-8, LF, the
+    index then `--check`s current), and scans the kit's Python for `write_text(...newline=`, which
+    a newer python3 would accept. `lint/run-fixtures.sh` runs it, so a 3.9 home's fixture run now
+    catches this; before, it passed 35/0 there while the tools crashed.
+  - **Correction to alpha.15:** its note listed macOS with Python 3.9.6 as a tested platform on the
+    strength of the 35/35 fixtures. That held for the lint only.
+  - Checked on CPython 3.9.24 (fetched by uv, on Linux; not macOS): the failing tests first, then
+    the fixture run, `write-paths-test.py`, `kit-update-test.py` and `spool-poll-test.py`, all
+    passing. README's tooling line now says Python 3.9 or newer.
+
 ## v0.1.0-alpha.15 -- 2026-10-15 -- who is owed, standing commitments, kit-update fixes
 
 Plugin versions this release: watch 0.3.1, obligations-pane 0.5.0, kit-update 0.3.0.
 Tested platforms add macOS with the system Python 3.9.6 (mac-sysops: 35/35 fixtures at alpha.14).
+*Corrected in alpha.16 (#34):* that held for the lint only. The fixtures do not run the tools' writes,
+and `tools/lesson-index.py` and `tools/extract-caps.py` crash on 3.9.
 
 - **Obligations name who is owed: `owed_to`** (#29, po-team; ruled by the household). An
   obligation has a counterparty who is waiting and would notice if it lapsed; that is why it rots

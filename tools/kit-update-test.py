@@ -415,8 +415,8 @@ class TheShippedUpgradeMd(unittest.TestCase):
         # The real file, not a copy: a heading the tool cannot parse makes every home's update a
         # manual one.
         text = (HERE.parent / "UPGRADE.md").read_text(encoding="utf-8")
-        self.assertIsNone(ku.data_steps_ok(text, ["0.1.0-alpha.14", "0.1.0-alpha.15"]))
-        self.assertIsNone(ku.data_steps_ok(text, ["0.1.0-alpha.12", "0.1.0-alpha.13", "0.1.0-alpha.14", "0.1.0-alpha.15"]))
+        self.assertIsNone(ku.data_steps_ok(text, ["0.1.0-alpha.15", "0.1.0-alpha.16"]))
+        self.assertIsNone(ku.data_steps_ok(text, ["0.1.0-alpha.12", "0.1.0-alpha.13", "0.1.0-alpha.14", "0.1.0-alpha.15", "0.1.0-alpha.16"]))
 
 
 class ObligationsDueShowsWhoIsOwed(unittest.TestCase):
