@@ -40,6 +40,14 @@
     (`current`/`staging`, no `commitments` key), so a home's scratchpad of that name still
     passes. Fixture `valid/commitments-named-scratchpad`.
   - Not read by the obligations pane or `obligations-due.py`: a commitment has no date.
+- **The lint banner names VERSION; a stale caps.yaml fails the fixture run** (#26, mvox and the
+  workshop). alpha.14 shipped caps.yaml still at alpha.13, so every lint banner said alpha.13.
+  - The banner reads the kit's `VERSION`, the one place the version lives (caps.yaml's copy only
+    for a kit without one).
+  - `lint/run-fixtures.sh` now runs `tools/extract-caps.py --check` and checks the banner: a
+    release that bumps VERSION without regenerating caps.yaml fails it. **Release step:** after
+    bumping VERSION, run `python3 tools/extract-caps.py`.
+  - caps.yaml regenerated (version line only).
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 

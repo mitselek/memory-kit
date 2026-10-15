@@ -132,6 +132,7 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
     `memory/commitments.yaml`; whether to use it is the human's call (see the GATE above). A
     scratchpad the home already named `commitments.yaml` (`current`/`staging`, no
     `commitments` key) is still linted as a scratchpad.
+  - The lint banner now names the kit's VERSION (#26); alpha.14's said alpha.13. Nothing to do.
 
 ## Always
 

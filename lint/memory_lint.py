@@ -530,6 +530,11 @@ def main(argv=None):
         sys.stderr.write("memory-kit: caps.yaml missing; run tools/extract-caps.py\n")
         return 2
     caps = yaml.safe_load(caps_path.read_text(encoding="utf-8"))
+    # The banner names VERSION, the one place the version lives; caps.yaml's copy is generated
+    # and went stale once (kit #26). It stands in only for a kit with no VERSION.
+    vfile = KIT / "VERSION"
+    version = (vfile.read_text(encoding="utf-8").splitlines() or [""])[0].strip() if vfile.exists() else ""
+    version = version or caps["version"]
     ref_re = re.compile(caps["ref_grammar"]["pattern"])
     today = dt.date.today()
 
@@ -544,7 +549,7 @@ def main(argv=None):
         # pointer-only conf so passes when its home does; a broken pointer fails in every mode.
         found = kit_home.resolve(home)
         if found.problem:
-            print(f"memory-kit lint {caps['version']} -- {home}")
+            print(f"memory-kit lint {version} -- {home}")
             print(f"  FAIL memory-kit.conf: {found.problem}")
             return 2
         if found.pointer:
@@ -567,7 +572,7 @@ def main(argv=None):
     # A missing memory directory fails in every mode, --report included: a lint that
     # found no tree has checked nothing, and "clean" would be a lie.
     if not mem.is_dir():
-        print(f"memory-kit lint {caps['version']} -- {mode} -- {mem}")
+        print(f"memory-kit lint {version} -- {mode} -- {mem}")
         print(f"  FAIL {mem.name}: no such memory directory")
         return 2
 
@@ -576,7 +581,7 @@ def main(argv=None):
         f.note(path, msg)
     lint_tree(mem, caps, f, ref_re, today, shipped_rules=a.shipped_rules)
 
-    print(f"memory-kit lint {caps['version']} -- {mode} -- {mem}")
+    print(f"memory-kit lint {version} -- {mode} -- {mem}")
     for line in pointer_lines:
         print(line)
     if f.counts:
