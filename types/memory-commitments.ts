@@ -17,7 +17,7 @@ export interface Commitment {
   obligation: string;
   /** Who acts on each obligation it creates. */
   actor: string;
-  /** Who is owed, as Obligation.owed_to: never "us", never the actor. Required here. */
+  /** Who is owed, as Obligation.owed_to: never "us" or "we", never the actor. Required here. */
   owed_to: string;
   /** From the trigger to the created obligation's deadline, in words: "3 days". */
   within: string;
