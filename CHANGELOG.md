@@ -18,7 +18,8 @@
     `invalid/obligation-owed-to-we`.
   - `tools/obligations-due.py` prints `actor -> owed_to:` on a row that has it.
   - The obligations pane reads `owed_to` (its parser refused unknown keys, so a row with one made
-    the whole file unreadable) and carries it in the row; it does not draw it.
+    the whole file unreadable) and shows it as the tool prints it: `actor -> owed_to: text`, the
+    party owed bold in its own colour. A row without one looks as before.
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 

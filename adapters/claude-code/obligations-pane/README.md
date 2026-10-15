@@ -34,8 +34,10 @@ plugin API (early access; the API moves between releases).
   - Tickets (a Jira key, an issue number) link the same way: give the ticket its own URL file,
     e.g. `memory/urls/veo-214`, and cite `urls/veo-214`. The pane recognises no ticket patterns
     on purpose; see the kit lesson `link-a-ticket-with-a-url-file` (#6).
-  - `check`, `since` and `owed_to` (kit #29; read since then, so a row with one parses) are
-    not shown, to keep rows light.
+  - A row with `owed_to` (kit #29) reads `actor -> owed_to: text`, as `tools/obligations-due.py`
+    prints it; the party owed is drawn as an actor is (bold, its own colour, 20 columns). A row
+    without one reads `actor text`, as before.
+  - `check` and `since` are not shown, to keep rows light.
 - **Footer** (sticky, under one `─` rule across the pane, no frame): one line for the session's main agent: the name in 10 columns (longer
   names get 9 chars + `…`), a colour-coded model letter, and the context weight such as
   `127k/1M`. The letters are F = Fable, O = Opus, S = Sonnet, H = Haiku, and a dim `·` when the model is unknown.

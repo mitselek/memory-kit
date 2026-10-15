@@ -4,7 +4,7 @@
 export type ObligationRow = {
   obligation: string
   actor: string
-  /** Who is waiting (kit #29); '' on a row without one. Read, not drawn. */
+  /** Who is waiting (kit #29); '' on a row without one. */
   owed_to: string
   since: string
   check: string
