@@ -17,6 +17,27 @@
   - Checked on CPython 3.9.24 (fetched by uv, on Linux; not macOS): the failing tests first, then
     the fixture run, `write-paths-test.py`, `kit-update-test.py` and `spool-poll-test.py`, all
     passing. README's tooling line now says Python 3.9 or newer.
+- **kit-update.py runs the plugin updates itself** (#37, po-team, Mihkel's proposal). po-team's
+  marketplace is a Directory source inside the subtree, and Claude Code never re-copies from it
+  unasked, so after the alpha.15 pull its plugins were still old; the tool printed the steps
+  (#23) and a person had to run them.
+  - After a pull that changed `memory-kit/adapters/`, with `claude` on PATH, the tool runs, in the
+    home: `claude plugin list --json`, then `claude plugin marketplace update memory-kit`, then
+    `claude plugin update <p>@memory-kit` for each changed plugin the list shows installed. It
+    says each step (`ran: ...`), names changed plugins not installed, and ends with
+    `now /reload-plugins in every session of this home`. No memory-kit plugin installed: it says
+    so and runs nothing more.
+  - **This widens its reach** from the home's repo to the harness's plugin state, user-level for a
+    user-scope install; the docstring's "what it does, and what it never does" says so. It never
+    installs, uninstalls, enables or configures a plugin, never adds a marketplace, and passes no
+    `-y`.
+  - `claude` not on PATH, or a list it cannot read: the steps are printed as in alpha.15 (#23). A
+    failed marketplace update stops there and prints the rest; a failed plugin update is named
+    and the others still run. Either way the kit update stands, exit 0 (#32's codes unchanged).
+    Each call is bounded at 120 s.
+  - Tests (`tools/kit-update-test.py`, 10 more) never run the real `claude`: PATH holds only a test
+    folder, with or without a fake `claude`; one test runs that fake for real and checks its
+    calls and their working folder.
 
 ## v0.1.0-alpha.15 -- 2026-10-15 -- who is owed, standing commitments, kit-update fixes
 

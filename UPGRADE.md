@@ -142,6 +142,12 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
 - **0.1.0-alpha.15 -> 0.1.0-alpha.16:** no data step. Pull, lint.
   - A home on Python 3.9 (macOS's system python3) can run `tools/lesson-index.py` again (#34).
     Nothing to do; if it skipped regenerating its index because of the crash, run it now.
+  - `tools/kit-update.py` now runs the plugin updates itself after a pull that changed a plugin,
+    when `claude` is on PATH (#37): `claude plugin marketplace update memory-kit` and `claude
+    plugin update <p>@memory-kit` for each changed one installed, then it says to
+    `/reload-plugins`. It changes the harness's plugin state, user-level for a user-scope install.
+    The run that pulls alpha.16 is still alpha.15's script, which prints the steps; the new
+    behaviour starts with the next update.
 
 ## Always
 
