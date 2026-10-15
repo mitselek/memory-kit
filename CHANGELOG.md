@@ -56,6 +56,29 @@
   - The pane README said a subtree pull updates the installed plugin; #23 showed it does not.
     Corrected.
 
+- **The spool poller: Windows without a console flash, a heartbeat, a reminder, JSON input** (#39,
+  Pepys's survey of five seats' Lelle pollers). `adapters/claude-code/watch/spool/spool-poll.py`:
+  - **Windows: `CREATE_NO_WINDOW`** for the poller `--keep-alive` starts (with
+    `CREATE_NEW_PROCESS_GROUP`, and breakaway from the hook's job where allowed) and for each
+    peek. It was `DETACHED_PROCESS`, which flashed a console every poll on the desk and
+    framework-research. Tested by the flags passed, with a mock: this box is Linux. The desk
+    will check that the poller outlives the session on Windows.
+  - **Liveness heartbeat.** Each successful run writes `.<stem>.alive` beside the spool (UTC time,
+    pid, interval, timeout); stale is older than two intervals and a timeout. New `--status`
+    (needs only `--spool`): the lock's pid, the last successful poll and its age, stale or not;
+    exit 0 running and fresh, 1 otherwise. `--keep-alive` prints one line when the running
+    poller is stale, and dates the outage when it starts one.
+  - **`--remind N`** (minutes, off by default): one `waiting: id=... age=... -- <line>` per id still
+    in the peek N minutes after the poller first saw it. The age runs from the hub's deposit
+    stamp (`--deposited`, a template, default `{deposited}`; ISO 8601), else from first sight.
+  - **`--json`** in place of `--match`: the output's first JSON value, a list of objects with `id`,
+    one item each; `--line` reads fields by index (`{entry[summary]}`), a missing one empty. A
+    list it cannot read is a failed run (a `health:` line), never a quiet zero.
+  - **The README states the ack rule**: ack by id only what you read; plain `recv` acks everything
+    waiting. `recv --ack <ids>` belongs to evr-mail's owner.
+  - Tests: `spool-poll-test.py` 16 -> 37, one of them a live detached poller's heartbeat and
+    `--status`.
+
 ## v0.1.0-alpha.15 -- 2026-10-15 -- who is owed, standing commitments, kit-update fixes
 
 Plugin versions this release: watch 0.3.1, obligations-pane 0.5.0, kit-update 0.3.0.

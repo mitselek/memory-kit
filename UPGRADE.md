@@ -151,6 +151,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   - New: `memory-kit/adapters/claude-code/README.md`, "Install scope" (#35). A home whose plugins
     are installed at user scope can read there what they do in other folders, and move them to
     project scope if it wants; that choice is the human's.
+  - The spool poller (#39): nothing changes until a home adds the new options. A Windows home that
+    runs it gets `CREATE_NO_WINDOW` at the pull; restart the poller (kill the pid in
+    `.<stem>.lock`, then start a session) to pick it up. `--remind`, `--json` and `--status` are
+    opt-in. Read the watch README's "Ack only what you read, by id" either way.
 
 ## Always
 
