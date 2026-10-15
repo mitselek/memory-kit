@@ -39,8 +39,11 @@ UPGRADE = """## Per version
 class FakeHost:
     """subprocess.run for the tool: git and the lint answered from a table, every call recorded."""
 
-    def __init__(self, tags, upgrade=UPGRADE, pull="ok", reset_rc=0, fetch="ok"):
+    def __init__(self, tags, upgrade=UPGRADE, pull="ok", reset_rc=0, fetch="ok", status=""):
         self.tags, self.upgrade, self.pull, self.reset_rc, self.fetch = tags, upgrade, pull, reset_rc, fetch
+        # `git status --porcelain` as the home would answer it with every untracked file shown;
+        # the fake applies the flags and the pathspec the tool passes.
+        self.status = status
         self.calls = []
 
     def __call__(self, argv, **kw):
@@ -53,7 +56,13 @@ class FakeHost:
             return done()  # the lint gate passes
         cmd = argv[3] if argv[:2] == ["git", "-C"] else words[0]
         if cmd == "status":
-            return done()
+            lines = self.status.splitlines()
+            if "--untracked-files=no" in argv:
+                lines = [l for l in lines if not l.startswith("??")]
+            if "--" in argv:
+                prefix = argv[argv.index("--") + 1].rstrip("/") + "/"
+                lines = [l for l in lines if l[3:].startswith(prefix)]
+            return done(out="".join(l + "\n" for l in lines))
         if cmd == "fetch":
             if self.fetch == "hang":
                 raise subprocess.TimeoutExpired(argv, kw.get("timeout"))
@@ -284,6 +293,36 @@ class ToolsFollowThePointer(unittest.TestCase):
                 code = due.main(["obligations-due.py", str(root / "start")])
             self.assertEqual(code, 0)
             self.assertIn("from the desk", out.getvalue())
+
+
+class UntrackedFiles(unittest.TestCase):
+    """Kit #25: an untracked scratch folder outside memory-kit/ refused the update. The undo is a
+    reset --hard, which leaves untracked files alone, and the pull writes only under memory-kit/."""
+
+    def test_untracked_files_outside_the_kit_do_not_refuse(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], status="?? scratchpad/notes.md\n?? todo.txt"))
+        self.assertEqual(code, 0, out)
+        self.assertIn("updated 0.1.0-alpha.13 -> 0.1.0-alpha.14", out)
+
+    def test_a_tracked_change_anywhere_refuses_and_is_named(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], status=" M memory/rules.yaml\n?? todo.txt"))
+        self.assertEqual(code, 1)
+        self.assertIn("uncommitted changes", out)
+        self.assertIn("memory/rules.yaml", out)
+        self.assertNotIn("todo.txt", out)
+
+    def test_an_untracked_file_under_the_kit_refuses_and_is_named(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], status="?? memory-kit/lint/stray.py\n?? todo.txt"))
+        self.assertEqual(code, 1)
+        self.assertIn("untracked under memory-kit/", out)
+        self.assertIn("memory-kit/lint/stray.py", out)
+        self.assertNotIn("todo.txt", out)
+
+    def test_many_files_are_named_five_then_counted(self):
+        status = "\n".join(f" M memory/facts/f{i}.yaml" for i in range(8))
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], status=status))
+        self.assertEqual(code, 1)
+        self.assertIn("memory/facts/f4.yaml +3 more", out)
 
 
 class Flags(unittest.TestCase):

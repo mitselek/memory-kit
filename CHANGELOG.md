@@ -52,6 +52,12 @@
   not starting with `--` and looked for `--dry-run`, so any other flag was dropped: `--help` ran a
   real update, and a typo'd `--dry-rn` would too. Now `--help` (or `-h`) prints the usage and runs
   nothing; any other option, or a second home, is bad usage: exit 2, nothing run.
+- **kit-update.py no longer refuses a home for untracked files outside the kit** (#25, mvox). An
+  untracked `scratchpad/` folder refused the update as "uncommitted changes". The undo is a
+  `reset --hard`, which leaves untracked files alone, and the pull writes only under
+  `memory-kit/`. Now a tracked change anywhere still refuses, and so does an untracked file under
+  `memory-kit/` (the pull writes there, and the lint reads the kit); an untracked file elsewhere
+  does not. The refusal names the files (five, then a count).
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 

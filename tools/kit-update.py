@@ -15,8 +15,9 @@ A folder that is not the home may hold a pointer conf, `kit_home: <path>` (absol
 to that conf): the tool then runs on the home it names, one hop (lint/kit_home.py, kit #18).
 
 What it does, and what it never does:
-  - refuses a dirty tree, a new major version, and any step whose UPGRADE.md entry does not
-    begin "no data step" (those need the full UPGRADE.md steps, by hand);
+  - refuses a dirty tree (a tracked change anywhere, an untracked file under memory-kit/; an
+    untracked file elsewhere is safe, #25), a new major version, and any step whose UPGRADE.md
+    entry does not begin "no data step" (those need the full UPGRADE.md steps, by hand);
   - git subtree pull --squash of the target tag, then the lint gate over the home;
   - on a lint failure, undoes the pull (back to the commit it started from) and says why;
   - commits locally and NEVER pushes: each home's own push rule applies;
@@ -126,6 +127,17 @@ def undo(home, start, why):
     return EXIT_ROLLBACK_FAILED
 
 
+def paths_of(porcelain):
+    """The paths in `git status --porcelain` output (a rename shows its new path)."""
+    return [line[3:].split(" -> ")[-1] for line in porcelain.splitlines() if line.strip()]
+
+
+def named(paths):
+    """The first five paths, then a count of the rest."""
+    more = f" +{len(paths) - 5} more" if len(paths) > 5 else ""
+    return ", ".join(paths[:5]) + more
+
+
 def lint_passes(home):
     """The home's lint gate, run with the home path. (passed, stdout)."""
     r = subprocess.run(["bash", str(home / "memory-kit/lint/memory-lint.sh"), str(home), "--gate"],
@@ -198,8 +210,15 @@ def main(argv):
     if key(target)[0] != key(cur_tag)[0]:
         say(f"{current} -> {target[1:]} is a new major version: upgrade by hand per UPGRADE.md")
         return 1
-    if git(home, "status", "--porcelain").stdout.strip():
-        say("the home has uncommitted changes; commit or stash them first")
+    # Tracked changes anywhere refuse; untracked files only under memory-kit/, where the pull writes
+    # and the lint reads. Elsewhere they are safe: the undo (reset --hard) leaves them alone (#25).
+    tracked = paths_of(git(home, "status", "--porcelain", "--untracked-files=no").stdout)
+    if tracked:
+        say(f"the home has uncommitted changes; commit or stash them first: {named(tracked)}")
+        return 1
+    stray = paths_of(git(home, "status", "--porcelain", "--untracked-files=all", "--", "memory-kit").stdout)
+    if stray:
+        say(f"files untracked under memory-kit/ (the pull writes there); remove or commit them first: {named(stray)}")
         return 1
     if not lint_passes(home)[0]:
         say("the home fails its own lint gate before any update; fix that first")
