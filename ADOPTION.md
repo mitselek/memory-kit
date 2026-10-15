@@ -68,8 +68,10 @@ Useful genus test, when a claim resists placement:
 - rots only when re-decided -> a **ruling**; keep it, and when it is reversed keep one dated
   line naming what replaced it
 - names someone you are waiting on, or something someone owes -> an **obligation**, not a
-  fact and not a scratchpad row. Give it an `actor`, a `since`, a `check` (how to see whether
-  it is done) and an `expires`. `expires` is the date you run the check, not the other party's
+  fact and not a scratchpad row. Give it an `actor`, an `owed_to` (who is waiting: never the
+  actor, never "us"), a `since`, a `check` (how to see whether it is done) and an `expires`.
+  Something nobody else is owed is a to-do, not an obligation: it goes in the home's own work
+  queue, which is not a kit tier. `expires` is the date you run the check, not the other party's
   deadline: on that date you check, then re-state, resolve or hand it to the human. (A
   scratchpad row would vanish at the next regeneration or squat a row for weeks; see the
   kit lesson `memory-kit/memory/lessons/obligations-are-not-facts.md`.)

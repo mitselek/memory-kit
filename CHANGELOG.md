@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- **Obligations name who is owed: `owed_to`** (#29, po-team; ruled by the household). An
+  obligation has a counterparty who is waiting and would notice if it lapsed; that is why it rots
+  when the counterparty acts. po-team's 16 rows held 3 obligations, 6 to-dos and 7 watches.
+  - The rule: `owed_to` names someone other than the actor, and never "us". What the assistant
+    owes the human is an obligation (`owed_to: <human>`); what someone owes themself is a to-do.
+  - **To-dos are not a kit tier.** They go in the home's own work queue (a backlog file;
+    scratchpad `current` for what is next). The types, ADOPTION, the skeleton's obligations file
+    and the lesson `obligations-are-not-facts` say so.
+  - A minor upgrade is a pull, so a row without `owed_to` never fails: the lint counts it
+    (`obligations with no owed_to`) and notes it. A row with one is gated: `owed_to` equal to the
+    actor (trimmed, any case) or "us" fails. Fixtures `valid/obligations-owed-to`,
+    `invalid/obligation-owed-to-actor`, `invalid/obligation-owed-to-us`.
+  - `tools/obligations-due.py` prints `actor -> owed_to:` on a row that has it.
+  - The obligations pane reads `owed_to` (its parser refused unknown keys, so a row with one made
+    the whole file unreadable) and carries it in the row; it does not draw it.
+
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 
 Plugin versions this release: watch 0.3.0, obligations-pane 0.4.0, kit-update 0.2.0.
