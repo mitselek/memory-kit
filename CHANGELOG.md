@@ -65,6 +65,14 @@
   update memory-kit`, `claude plugin update <plugin>@memory-kit` for each changed one the home
   has installed, then `/reload-plugins` in every session of the home. It names them; it does not
   run them.
+- **kit-update says when the start folder has no memory-kit.conf** (#31, the workshop). With no
+  conf (and no pointer), the plugin read the channel as pinned and the version as missing and
+  returned without a word: 13 hours of silence that looked like "nothing newer". Now it is one
+  visible notice, and `/kit-update` shows it: "<folder> has no memory-kit.conf, so it is not a kit
+  home; if the home is elsewhere, put kit_home: <path> in a memory-kit.conf here. kit-update checks
+  nothing until it has one." `tools/kit-update.py` says the same, exit 2. The notice text is
+  shared: `noConfNotice` in each plugin's identical `hooks/kit-home.ts`, `no_conf_notice` in
+  `lint/kit_home.py`, tested to the same string.
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 

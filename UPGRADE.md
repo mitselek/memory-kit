@@ -133,6 +133,8 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
     scratchpad the home already named `commitments.yaml` (`current`/`staging`, no
     `commitments` key) is still linted as a scratchpad.
   - The lint banner now names the kit's VERSION (#26); alpha.14's said alpha.13. Nothing to do.
+  - A session whose start folder has no `memory-kit.conf` now gets one kit-update notice saying so
+    (#31). If the home is elsewhere, add a one-line pointer conf there: `kit_home: <path>`.
 
 ## Always
 

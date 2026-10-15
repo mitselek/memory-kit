@@ -248,6 +248,22 @@ class KitHomePointer(unittest.TestCase):
         self.assertEqual(kit_home.resolve(self.root / "start").ignored, ["watch_sources", "memory_dir"])
 
 
+class NoConf(unittest.TestCase):
+    """Kit #31: a start folder with no memory-kit.conf is said plainly, worded as the plugins'
+    hooks/kit-home.ts words it."""
+
+    def test_the_notice_is_the_plugins_text(self):
+        self.assertEqual(kit_home.no_conf_notice("/u/start/"), "/u/start has no memory-kit.conf, so it is not a kit home; if the home is elsewhere, put kit_home: <path> in a memory-kit.conf here")
+
+    def test_kit_update_on_a_folder_with_no_conf_says_so_exit_2(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = ku.main(["kit-update.py", d])
+            self.assertEqual(code, 2)
+            self.assertIn(f"kit-update: {d} has no memory-kit.conf, so it is not a kit home; if the home is elsewhere, put kit_home: <path> in a memory-kit.conf here. kit-update checks nothing until it has one.", out.getvalue())
+
+
 class ToolsFollowThePointer(unittest.TestCase):
     def test_kit_update_runs_on_the_home_the_pointer_names(self):
         host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"])

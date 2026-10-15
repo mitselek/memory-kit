@@ -185,7 +185,10 @@ def main(argv):
     if found.pointer:
         say(f"following kit_home in {found.pointer} to {home}")
     vfile, cfile = home / "memory-kit" / "VERSION", home / "memory-kit.conf"
-    if not vfile.exists() or not cfile.exists():
+    if not cfile.exists():
+        say(f"{kit_home.no_conf_notice(home)}. kit-update checks nothing until it has one.")
+        return 2
+    if not vfile.exists():
         say(f"{home} is not a kit home (needs memory-kit/VERSION and memory-kit.conf)")
         return 2
     conf = cfile.read_text(encoding="utf-8")
