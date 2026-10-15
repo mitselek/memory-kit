@@ -286,5 +286,23 @@ class ToolsFollowThePointer(unittest.TestCase):
             self.assertIn("from the desk", out.getvalue())
 
 
+class ObligationsDueShowsWhoIsOwed(unittest.TestCase):
+    def test_a_row_with_owed_to_names_both_parties_and_one_without_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {
+                "memory/obligations.yaml": (
+                    "obligations:\n"
+                    "  - obligation: answer the email\n    actor: Pepys\n    owed_to: the board\n    expires: 2000-01-01\n"
+                    "  - obligation: from before owed_to\n    actor: Pepys\n    expires: 2000-01-02\n"),
+            })
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = due.main(["obligations-due.py", str(root)])
+            self.assertEqual(code, 0)
+            self.assertIn("- 2000-01-01  Pepys -> the board: answer the email", out.getvalue())
+            self.assertIn("- 2000-01-02  Pepys: from before owed_to", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
