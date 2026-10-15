@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-alpha.15 -- 2026-10-15 -- who is owed, standing commitments, kit-update fixes
+
+Plugin versions this release: watch 0.3.1, obligations-pane 0.5.0, kit-update 0.3.0.
+Tested platforms add macOS with the system Python 3.9.6 (mac-sysops: 35/35 fixtures at alpha.14).
 
 - **Obligations name who is owed: `owed_to`** (#29, po-team; ruled by the household). An
   obligation has a counterparty who is waiting and would notice if it lapsed; that is why it rots

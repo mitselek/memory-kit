@@ -121,7 +121,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   kit-update 0.2.0): `claude plugin marketplace update memory-kit`, then update each plugin or
   reinstall, then `/reload-plugins`.
 
-- **0.1.0-alpha.14 -> 0.1.0-alpha.15:** no data step. Pull, lint, `/reload-plugins`.
+- **0.1.0-alpha.14 -> 0.1.0-alpha.15:** no data step. Pull, lint, then update the plugins: plugin
+  versions moved (watch 0.3.1, obligations-pane 0.5.0, kit-update 0.3.0), and a pull alone never
+  updates one: `claude plugin marketplace update memory-kit`, `claude plugin update <p>@memory-kit`
+  for each installed one, then `/reload-plugins`. kit-update.py now prints these steps (#23).
   - Obligations take `owed_to` (#29). Expect a new note per row without it, `no owed_to`, and a
     count; it never fails the gate. Nothing to change at the pull. From then on, write `owed_to`
     on new rows and on old ones as they are next touched; a row nobody but its actor is owed is
