@@ -139,7 +139,9 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   - A session whose start folder has no `memory-kit.conf` now gets one kit-update notice saying so
     (#31). If the home is elsewhere, add a one-line pointer conf there: `kit_home: <path>`.
 
-- **0.1.0-alpha.15 -> 0.1.0-alpha.16:** no data step. Pull, lint.
+- **0.1.0-alpha.15 -> 0.1.0-alpha.16:** no data step. Pull, lint, then update the plugins as for alpha.15
+  (watch 0.4.0, obligations-pane 0.5.1, kit-update 0.3.1; alpha.15's kit-update.py prints the steps), then
+  `/reload-plugins`.
   - A home on Python 3.9 (macOS's system python3) can run `tools/lesson-index.py` again (#34).
     Nothing to do; if it skipped regenerating its index because of the crash, run it now.
   - `tools/kit-update.py` now runs the plugin updates itself after a pull that changed a plugin,

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-alpha.16 -- 2026-10-15 -- Python 3.9, plugin updates run, install scope, poller survey
+
+Plugin versions this release: watch 0.4.0, obligations-pane 0.5.1, kit-update 0.3.1.
 
 - **Python 3.9: the tools write without `Path.write_text(newline=)`** (#34, mac-sysops). That
   keyword is Python 3.10+, so on macOS's system Python 3.9.6 `tools/lesson-index.py` crashed at
