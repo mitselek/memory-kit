@@ -48,6 +48,10 @@
     release that bumps VERSION without regenerating caps.yaml fails it. **Release step:** after
     bumping VERSION, run `python3 tools/extract-caps.py`.
   - caps.yaml regenerated (version line only).
+- **kit-update.py refuses an unknown option** (#32, the workshop). It kept only the arguments
+  not starting with `--` and looked for `--dry-run`, so any other flag was dropped: `--help` ran a
+  real update, and a typo'd `--dry-rn` would too. Now `--help` (or `-h`) prints the usage and runs
+  nothing; any other option, or a second home, is bad usage: exit 2, nothing run.
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 

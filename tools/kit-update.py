@@ -2,6 +2,7 @@
 """Move a home's vendored memory-kit to the newest release its channel allows.
 
     python3 memory-kit/tools/kit-update.py [home] [--dry-run]
+    python3 memory-kit/tools/kit-update.py --help       this text; runs nothing
 
 The home's memory-kit.conf names the channel:
 
@@ -22,7 +23,7 @@ What it does, and what it never does:
   - says when a plugin changed, so the session runs /reload-plugins.
 
 Exit: 0 updated or nothing to do, 1 refused or failed (and anything changed undone), 2 bad usage
-or setup, 3 the undo itself failed: the tree may be partly pulled (the message says how to recover).
+(an unknown option, more than one home) or setup, 3 the undo itself failed: the tree may be partly pulled (the message says how to recover).
 Kit #15. The kit-update plugin prompts a session to run this when a release appears.
 """
 import os
@@ -133,8 +134,20 @@ def lint_passes(home):
 
 
 def main(argv):
-    args = [a for a in argv[1:] if not a.startswith("--")]
-    dry = "--dry-run" in argv
+    # Every option is known or refused: a dropped unknown one let --help run a real update (#32).
+    opts = [a for a in argv[1:] if a.startswith("-")]
+    args = [a for a in argv[1:] if not a.startswith("-")]
+    if "--help" in opts or "-h" in opts:
+        print(__doc__.strip())
+        return 0
+    for o in opts:
+        if o != "--dry-run":
+            say(f"unknown option {o} (usage: kit-update.py [home] [--dry-run]; --help for more)")
+            return 2
+    if len(args) > 1:
+        say(f"one home at most, got {len(args)}: {' '.join(args)}")
+        return 2
+    dry = "--dry-run" in opts
     start = pathlib.Path(args[0] if args else ".").resolve()
     found = kit_home.resolve(start)
     if found.problem:

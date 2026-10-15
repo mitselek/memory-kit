@@ -286,6 +286,41 @@ class ToolsFollowThePointer(unittest.TestCase):
             self.assertIn("from the desk", out.getvalue())
 
 
+class Flags(unittest.TestCase):
+    """Kit #32: --help ran a real update, because every unknown -- flag was dropped silently."""
+
+    def run_main(self, *argv):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"])
+        real, ku.subprocess.run = ku.subprocess.run, host
+        out = io.StringIO()
+        try:
+            with redirect_stdout(out):
+                code = ku.main(["kit-update.py", *argv])
+        finally:
+            ku.subprocess.run = real
+        return code, out.getvalue(), host.calls
+
+    def test_help_prints_the_usage_and_runs_nothing(self):
+        for flag in ("--help", "-h"):
+            code, out, calls = self.run_main(flag)
+            self.assertEqual(code, 0, flag)
+            self.assertIn("kit-update.py [home] [--dry-run]", out)
+            self.assertEqual(calls, [], flag)
+
+    def test_an_unknown_flag_is_bad_usage_exit_2_and_runs_nothing(self):
+        for flag in ("--dry-rn", "-n", "--force"):
+            code, out, calls = self.run_main(".", flag)
+            self.assertEqual(code, 2, flag)
+            self.assertIn(f"unknown option {flag}", out)
+            self.assertEqual(calls, [], flag)
+
+    def test_two_homes_is_bad_usage(self):
+        code, out, calls = self.run_main("a", "b")
+        self.assertEqual(code, 2)
+        self.assertIn("one home at most", out)
+        self.assertEqual(calls, [])
+
+
 class TheShippedUpgradeMd(unittest.TestCase):
     def test_the_next_hop_is_named_and_reads_as_no_data_step(self):
         # The real file, not a copy: a heading the tool cannot parse makes every home's update a
