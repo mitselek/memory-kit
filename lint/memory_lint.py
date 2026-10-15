@@ -217,7 +217,7 @@ def lint_rules(path, caps, f, ref_re, *, shipped=False):
 def check_owed_to(r, actor, path, where, f, counter):
     """owed_to names someone other than the actor (kit #29). A row without one is gauged, never
     failed: rows written before the field must not close an upgraded home's gate. A row with one
-    is gated: owed to the actor, or to "us", it is a to-do, which goes in the home's work queue."""
+    is gated: owed to the actor, or to "us" or "we", it is a to-do, which goes in the home's work queue."""
     v = r.get("owed_to")
     if v is None or (isinstance(v, str) and not v.strip()):
         f.count(counter)
@@ -227,8 +227,8 @@ def check_owed_to(r, actor, path, where, f, counter):
         f.fail(path, f"{where}: 'owed_to' is {type(v).__name__}, expected a name")
         return
     owed = v.strip().casefold()
-    if owed == "us":
-        f.fail(path, f"{where}: 'owed_to' is \"us\"; name who is waiting")
+    if owed in ("us", "we"):
+        f.fail(path, f"{where}: 'owed_to' is \"{owed}\"; name who is waiting")
     elif actor and owed == actor.strip().casefold():
         f.fail(path, f"{where}: 'owed_to' names the actor; owed to no one else, it is a to-do")
 

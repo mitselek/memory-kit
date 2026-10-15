@@ -29,7 +29,7 @@ Failures are shape: a cap exceeded, a ref outside the grammar, a missing or unkn
 bad date, an inline URL, a lesson indexed with no file or on disk with no index line, a lesson
 summary cut by an unquoted ` #` (YAML reads the rest of the line as a comment, so the generated
 index agrees with the cut value; only the raw front matter shows it), an obligation's `owed_to`
-that is the actor or "us" (kit #29: owed to no one else, it is a to-do).
+that is the actor, "us" or "we" (kit #29: owed to no one else, it is a to-do).
 
 Notes never fail a gate. They are the honest gaps the kit wants counted rather than hidden:
 
