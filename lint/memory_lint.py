@@ -214,12 +214,17 @@ def lint_rules(path, caps, f, ref_re, *, shipped=False):
         f.count("shipped rules" if shipped else "rules")
 
 
-def check_owed_to(r, actor, path, where, f, counter):
-    """owed_to names someone other than the actor (kit #29). A row without one is gauged, never
-    failed: rows written before the field must not close an upgraded home's gate. A row with one
-    is gated: owed to the actor, or to "us" or "we", it is a to-do, which goes in the home's work queue."""
+def check_owed_to(r, actor, path, where, f, counter=None):
+    """owed_to names someone other than the actor (kit #29). An obligation without one is gauged
+    (counter given), never failed: rows written before the field must not close an upgraded home's
+    gate. A commitment (no counter) must have one: the tier is new, so no row predates it. A row
+    with one is gated: owed to the actor, or to "us" or "we", it is a to-do, which goes in the
+    home's work queue."""
     v = r.get("owed_to")
     if v is None or (isinstance(v, str) and not v.strip()):
+        if counter is None:
+            f.fail(path, f"{where}: 'owed_to' missing or empty")
+            return
         f.count(counter)
         f.note(path, f"{where}: no owed_to -- who is waiting on this?")
         return
@@ -264,6 +269,32 @@ def lint_obligations(path, caps, f, ref_re, today):
             f.count("obligations expired")
             f.note(path, f"{where}: EXPIRED {exp} -- run the check, then re-state or resolve")
         f.count("obligations")
+
+
+def lint_commitments(path, caps, f, ref_re):
+    """Standing promises and watches (kit #30), optional: a home opts in with the file. Each
+    trigger creates an obligation; the row itself never expires, and only a ruling retires it."""
+    data = load(path, f)
+    if data is None:
+        return
+    rows = seq(data, "commitments", path, f)
+    if rows is None:
+        return
+    cap = caps["obligations"]["obligation_chars"]
+    for i, r in enumerate(rows):
+        where = f"commitments[{i}]"
+        if not isinstance(r, dict):
+            f.fail(path, f"{where}: not a mapping")
+            continue
+        unknown_keys(r, {"trigger", "obligation", "actor", "owed_to", "within", "ref"},
+                     path, where, f)
+        required_str(r, "trigger", path, where, f, cap=cap)
+        required_str(r, "obligation", path, where, f, cap=cap)
+        actor = required_str(r, "actor", path, where, f)
+        check_owed_to(r, actor, path, where, f)
+        required_str(r, "within", path, where, f)
+        check_ref(r.get("ref"), path, where, f, ref_re)
+        f.count("commitments")
 
 
 def lint_keys(path, caps, f, ref_re):
@@ -408,6 +439,18 @@ def lint_urls(mem, f):
 
 # ----------------------------------------------------------------------- main
 
+def scratchpad_shaped(path):
+    """A commitments.yaml holding current/staging and no commitments key is a scratchpad a home
+    named so before the tier existed (kit #30): a minor upgrade must not fail it. Unparseable is
+    not scratchpad-shaped; the commitments check reports it."""
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return False
+    return (isinstance(data, dict) and "commitments" not in data
+            and ("current" in data or "staging" in data))
+
+
 def lint_tree(mem, caps, f, ref_re, today, *, shipped_rules=False):
     if not mem.is_dir():
         f.fail(mem, "no such memory directory")
@@ -420,6 +463,8 @@ def lint_tree(mem, caps, f, ref_re, today, *, shipped_rules=False):
             lint_obligations(p, caps, f, ref_re, today)
         elif name == "keys":
             lint_keys(p, caps, f, ref_re)
+        elif name == "commitments" and not scratchpad_shaped(p):
+            lint_commitments(p, caps, f, ref_re)
         else:
             lint_scratchpad(p, caps, f, ref_re)
     for p in sorted((mem / "facts").glob("*.yaml")):

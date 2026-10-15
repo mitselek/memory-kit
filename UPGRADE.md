@@ -128,6 +128,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
     a to-do, which belongs in the home's own work queue (moving one out is the human's call).
     Update the obligations pane with the release before any row carries `owed_to`: an older
     pane refuses the whole file on the unknown key.
+  - New, optional: the commitments tier (#30). Nothing changes until the home creates
+    `memory/commitments.yaml`; whether to use it is the human's call (see the GATE above). A
+    scratchpad the home already named `commitments.yaml` (`current`/`staging`, no
+    `commitments` key) is still linted as a scratchpad.
 
 ## Always
 

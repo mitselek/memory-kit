@@ -20,6 +20,26 @@
   - The obligations pane reads `owed_to` (its parser refused unknown keys, so a row with one made
     the whole file unreadable) and shows it as the tool prints it: `actor -> owed_to: text`, the
     party owed bold in its own colour. A row without one looks as before.
+- **A commitments tier, optional** (#30, po-team; ruled by the household). Some things never
+  leave the table: a promise ("answer the board's email within 3 days") or a watch ("if a second
+  collective is provisioned, re-check the park"). Each time its trigger happens it creates an
+  obligation, which goes to `obligations.yaml` and is deleted when resolved. Until now these sat
+  in obligations with an invented expiry (#27), or in rules and prose.
+  - `memory/commitments.yaml`, `types/memory-commitments.ts`. A row: `trigger`, `obligation`
+    (what is then owed), `actor`, `owed_to`, `within` (how long, in words), `ref`. No `expires`:
+    it never expires; only a ruling retires it.
+  - **A home opts in by creating the file**; without it nothing changes. The skeleton does not
+    ship one.
+  - Gated whole, since no row predates the tier: every field but `ref` is required, `owed_to`
+    follows the #29 rule (never the actor, "us" or "we"), `trigger` and `obligation` share the
+    obligation cap (120 chars). Fixtures `valid/commitments`, `invalid/commitment-missing-owed-to`,
+    `invalid/commitment-owed-to-actor`, `invalid/commitment-has-expires`,
+    `invalid/commitment-missing-within`.
+  - The lint used to read any other top-level `<name>.yaml` as a scratchpad, `commitments.yaml`
+    included; it now reads that name as this tier, unless the file is scratchpad-shaped
+    (`current`/`staging`, no `commitments` key), so a home's scratchpad of that name still
+    passes. Fixture `valid/commitments-named-scratchpad`.
+  - Not read by the obligations pane or `obligations-due.py`: a commitment has no date.
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 
