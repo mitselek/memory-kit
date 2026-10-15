@@ -79,6 +79,11 @@
   - Tests: `spool-poll-test.py` 16 -> 37, one of them a live detached poller's heartbeat and
     `--status`.
 
+- **README**: the context-weight table regenerated with `tools/weigh.py` (its figures were stale: 680
+  tokens per session, now 704; types 13 files, 5 lessons, 4 url files). The roadmap says six homes,
+  and that alpha.15 shipped `owed_to` and the commitments tier ahead of 0.2, both additive. The
+  layout names `write-paths-test.py` and the adapters README.
+
 ## v0.1.0-alpha.15 -- 2026-10-15 -- who is owed, standing commitments, kit-update fixes
 
 Plugin versions this release: watch 0.3.1, obligations-pane 0.5.0, kit-update 0.3.0.
