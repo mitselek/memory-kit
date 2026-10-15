@@ -21,7 +21,8 @@ What it does, and what it never does:
   - git subtree pull --squash of the target tag, then the lint gate over the home;
   - on a lint failure, undoes the pull (back to the commit it started from) and says why;
   - commits locally and NEVER pushes: each home's own push rule applies;
-  - says when a plugin changed, so the session runs /reload-plugins.
+  - when a plugin changed, names the steps that update it: the marketplace update, a plugin
+    update per changed plugin, then /reload-plugins (a pull alone never updates one, #23).
 
 Exit: 0 updated or nothing to do, 1 refused or failed (and anything changed undone), 2 bad usage
 (an unknown option, more than one home) or setup, 3 the undo itself failed: the tree may be partly pulled (the message says how to recover).
@@ -136,6 +137,21 @@ def named(paths):
     """The first five paths, then a count of the rest."""
     more = f" +{len(paths) - 5} more" if len(paths) > 5 else ""
     return ", ".join(paths[:5]) + more
+
+
+def plugin_steps(changed):
+    """What to run when the pull changed files under memory-kit/adapters. A pull never updates an
+    installed plugin: the harness keeps its own copy from the install, so /reload-plugins alone
+    reloads the old one (#23, po-team's pane stayed at 0.1.0)."""
+    names = sorted({p.split("/")[3] for p in changed
+                    if p.startswith("memory-kit/adapters/claude-code/") and p.count("/") >= 4
+                    and not p.split("/")[3].startswith(".")})
+    lines = [f"plugins changed: {', '.join(names)}" if names else "the plugin marketplace changed",
+             "a pull never updates an installed plugin; run, in order (each plugin this home has installed):",
+             "  claude plugin marketplace update memory-kit"]
+    lines += [f"  claude plugin update {n}@memory-kit" for n in names]
+    lines.append("  then /reload-plugins in every session of this home")
+    return lines
 
 
 def lint_passes(home):
@@ -255,7 +271,8 @@ def main(argv):
     plugins = git(home, "diff", "--name-only", start, "HEAD", "--", "memory-kit/adapters").stdout.split()
     say(f"updated {current} -> {target[1:]} ({channel}); lint gate passes; committed locally, not pushed")
     if plugins:
-        say("a plugin changed: run /reload-plugins")
+        for line in plugin_steps(plugins):
+            say(line)
     return 0
 
 

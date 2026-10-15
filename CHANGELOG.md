@@ -58,6 +58,13 @@
   `memory-kit/`. Now a tracked change anywhere still refuses, and so does an untracked file under
   `memory-kit/` (the pull writes there, and the lint reads the kit); an untracked file elsewhere
   does not. The refusal names the files (five, then a count).
+- **kit-update.py names the plugin-update steps** (#23, po-team). A subtree pull never updates an
+  installed plugin (the harness keeps its own copy from the install), so po-team's pane stayed at
+  0.1.0 through `/reload-plugins`. When the pull changed anything under `adapters/`, the tool now
+  names the changed plugins and the sequence, as UPGRADE.md does: `claude plugin marketplace
+  update memory-kit`, `claude plugin update <plugin>@memory-kit` for each changed one the home
+  has installed, then `/reload-plugins` in every session of the home. It names them; it does not
+  run them.
 
 ## v0.1.0-alpha.14 -- 2026-10-14 -- the pointer home, one drain per home, ultrareview fixes
 

@@ -39,11 +39,12 @@ UPGRADE = """## Per version
 class FakeHost:
     """subprocess.run for the tool: git and the lint answered from a table, every call recorded."""
 
-    def __init__(self, tags, upgrade=UPGRADE, pull="ok", reset_rc=0, fetch="ok", status=""):
+    def __init__(self, tags, upgrade=UPGRADE, pull="ok", reset_rc=0, fetch="ok", status="", diff=""):
         self.tags, self.upgrade, self.pull, self.reset_rc, self.fetch = tags, upgrade, pull, reset_rc, fetch
         # `git status --porcelain` as the home would answer it with every untracked file shown;
         # the fake applies the flags and the pathspec the tool passes.
         self.status = status
+        self.diff = diff  # `git diff --name-only` between the start and the pulled commit
         self.calls = []
 
     def __call__(self, argv, **kw):
@@ -78,7 +79,7 @@ class FakeHost:
         if cmd == "reset":
             return done(rc=self.reset_rc, err="" if self.reset_rc == 0 else "fatal: Unable to create '.git/index.lock': File exists.")
         if cmd == "diff":
-            return done()
+            return done(out=self.diff)
         raise AssertionError(f"unexpected command: {argv}")
 
     def timeout_of(self, cmd):
@@ -323,6 +324,39 @@ class UntrackedFiles(unittest.TestCase):
         code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], status=status))
         self.assertEqual(code, 1)
         self.assertIn("memory/facts/f4.yaml +3 more", out)
+
+
+class PluginSteps(unittest.TestCase):
+    """Kit #23: a subtree pull never updates an installed plugin (the harness keeps its own copy),
+    so /reload-plugins alone left po-team's pane at 0.1.0. The tool names the whole sequence."""
+
+    TAGS = ["v0.1.0-alpha.13", "v0.1.0-alpha.14"]
+
+    def test_changed_plugins_get_the_marketplace_update_each_update_then_reload(self):
+        diff = ("memory-kit/adapters/claude-code/watch/hooks/watch.ts\n"
+                "memory-kit/adapters/claude-code/obligations-pane/README.md\n"
+                "memory-kit/adapters/claude-code/watch/README.md\n")
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff=diff))
+        self.assertEqual(code, 0, out)
+        lines = out.splitlines()
+        i = lines.index("kit-update:   claude plugin marketplace update memory-kit")
+        self.assertEqual(lines[i + 1:i + 4], [
+            "kit-update:   claude plugin update obligations-pane@memory-kit",
+            "kit-update:   claude plugin update watch@memory-kit",
+            "kit-update:   then /reload-plugins in every session of this home",
+        ])
+        self.assertIn("plugins changed: obligations-pane, watch", out)
+
+    def test_the_marketplace_alone_changed_needs_no_plugin_update(self):
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff="memory-kit/adapters/claude-code/.claude-plugin/marketplace.json\n"))
+        self.assertEqual(code, 0, out)
+        self.assertIn("claude plugin marketplace update memory-kit", out)
+        self.assertNotIn("claude plugin update ", out)
+
+    def test_no_adapter_change_says_nothing_about_plugins(self):
+        code, out = run_tool(FakeHost(tags=self.TAGS))
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("plugin", out)
 
 
 class Flags(unittest.TestCase):
