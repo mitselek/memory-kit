@@ -148,6 +148,9 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
     `/reload-plugins`. It changes the harness's plugin state, user-level for a user-scope install.
     The run that pulls alpha.16 is still alpha.15's script, which prints the steps; the new
     behaviour starts with the next update.
+  - New: `memory-kit/adapters/claude-code/README.md`, "Install scope" (#35). A home whose plugins
+    are installed at user scope can read there what they do in other folders, and move them to
+    project scope if it wants; that choice is the human's.
 
 ## Always
 

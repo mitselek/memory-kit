@@ -507,6 +507,10 @@ The marketplace entry to add upstream (`adapters/claude-code/.claude-plugin/mark
 
 For one session only: `claude --plugin-dir ./memory-kit/adapters/claude-code/watch`.
 
+**Scope.** This installs at user scope: every session on the machine loads the plugin. What it
+does in a folder that is not a kit home, and the project-scope alternative:
+[Install scope](../README.md#install-scope-kit-35).
+
 ## Develop
 
 ```sh

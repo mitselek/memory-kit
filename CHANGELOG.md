@@ -38,6 +38,23 @@
   - Tests (`tools/kit-update-test.py`, 10 more) never run the real `claude`: PATH holds only a test
     folder, with or without a fake `claude`; one test runs that fake for real and checks its
     calls and their working folder.
+- **Install scope, documented** (#35, the household after mac-sysops). A plugin installs at user
+  scope by default, so it loads in every session on the machine. `adapters/claude-code/README.md`
+  (new) has an "Install scope" section, and each plugin README's Install points at it:
+  - **Outside a kit home** (no `memory-kit.conf` in the start folder), tested first: kit-update
+    gives one notice per session (#31); the pane and the watch are silent. The pane does not
+    open, asks nothing upstream and logs nothing; the watch delivers, writes, claims and runs
+    nothing, and says nothing, also with `retireOnIdle` on (one debug line). Both still register
+    their slash command and read the start folder's conf on their timers. User-scope options
+    (`memoryDir`, `home`) end that silence. Tests: 3 in the watch, 3 in the pane; the behaviour
+    held already, no code changed.
+  - **Project scope** as the alternative, from the folder the home's sessions start in (with a
+    `kit_home` pointer, that is the start folder, not the home). Not run here: the kit's tests do
+    not install.
+  - **The trap seen 14.10:** `claude plugin marketplace add --scope local` also rewrote the
+    user-level marketplace entry. Said in the section; not filed with the harness.
+  - The pane README said a subtree pull updates the installed plugin; #23 showed it does not.
+    Corrected.
 
 ## v0.1.0-alpha.15 -- 2026-10-15 -- who is owed, standing commitments, kit-update fixes
 
