@@ -286,6 +286,15 @@ class ToolsFollowThePointer(unittest.TestCase):
             self.assertIn("from the desk", out.getvalue())
 
 
+class TheShippedUpgradeMd(unittest.TestCase):
+    def test_the_next_hop_is_named_and_reads_as_no_data_step(self):
+        # The real file, not a copy: a heading the tool cannot parse makes every home's update a
+        # manual one.
+        text = (HERE.parent / "UPGRADE.md").read_text(encoding="utf-8")
+        self.assertIsNone(ku.data_steps_ok(text, ["0.1.0-alpha.14", "0.1.0-alpha.15"]))
+        self.assertIsNone(ku.data_steps_ok(text, ["0.1.0-alpha.12", "0.1.0-alpha.13", "0.1.0-alpha.14", "0.1.0-alpha.15"]))
+
+
 class ObligationsDueShowsWhoIsOwed(unittest.TestCase):
     def test_a_row_with_owed_to_names_both_parties_and_one_without_is_unchanged(self):
         with tempfile.TemporaryDirectory() as d:
