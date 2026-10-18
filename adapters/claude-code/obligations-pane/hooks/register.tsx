@@ -8,7 +8,6 @@ import type { ObligationRow, PaneAgent, PaneSnapshot } from '../types'
 import { resolveKitHome } from './kit-home'
 import {
   actorColor,
-  basename,
   cachedCheck,
   clampIndex,
   confValue,
@@ -42,6 +41,7 @@ import {
   liveAgents,
   MODEL_COLORS,
   memoryDirOf,
+  selfName,
   modelLetter,
   newestRelease,
   offsetFromZ,
@@ -243,7 +243,7 @@ export async function refresh($: EngineInterface, settings: Settings): Promise<v
     ...('problem' in found ? { kitVersion: '', upstreamUrl: '', latest: '' } : await kitOf($, cwd, root, checkUpdates, pointed)),
     now,
     offsetMinutes: await offsetOf($, now),
-    self: { name: agentName || basename(cwd), model, tokens, window },
+    self: { name: selfName(conf, agentName, cwd), model, tokens, window },
     agents: liveAgents(agents),
   }
   await $.state.set({ plugin: 'obligations-pane', key: 'snapshot' }, value)

@@ -366,6 +366,26 @@ describe('footer agents', () => {
   })
 })
 
+describe("footer name from the home's memory-kit.conf (gh#4)", () => {
+  const self = async (ui: Parameters<typeof textOf>[0]) => (await textOf(ui)).find(t => /^\S.{9} [A-Z·] /.test(t))
+  test("agent_name: names the main agent, over a user-wide agentName", { options: { agentName: 'Passe' } }, async ($, on) => {
+    worldOf(on, { ...KIT, 'memory-kit.conf': 'memory_dir: memory\nagent_name: Brann\n' })
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    expect((await self(ui))?.startsWith('Brann      ')).toBe(true)
+    await ui.unmount()
+  })
+  test('without agent_name: the option still names it', { options: { agentName: 'Passe' } }, async ($, on) => {
+    worldOf(on, { ...KIT, 'memory-kit.conf': 'memory_dir: memory\n' })
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    expect((await self(ui))?.startsWith('Passe      ')).toBe(true)
+    await ui.unmount()
+  })
+})
+
 describe('footer workflows', () => {
   test('a workflow run shows its phase and done/started while an agent works', async ($, on) => {
     worldOf(on, KIT)

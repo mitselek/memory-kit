@@ -206,7 +206,9 @@ Or for one session only: `claude --plugin-dir ./memory-kit/adapters/claude-code/
 Options (`userConfig`):
 
 - `agentName` is the footer name of the main agent. Left empty, the footer uses the working
-  directory's name.
+  directory's name. A home's own `agent_name:` in its `memory-kit.conf` wins over it (gh#4):
+  plugin options are read from user settings only, so on a box with several homes each one
+  names itself there.
 - `memoryDir` points the pane at a home's memory directory (see Data source). **Set user-wide, it
   applies to every session on the machine**: prefer a `kit_home` pointer conf, which also wins
   over this option.

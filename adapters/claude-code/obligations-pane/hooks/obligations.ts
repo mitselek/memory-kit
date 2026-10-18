@@ -348,6 +348,15 @@ export function memoryDirOf(conf: string): string | undefined {
   return confValue(conf, 'memory_dir')
 }
 
+/**
+ * The main agent's footer name (gh#4): the home's `agent_name:`, else the agentName option,
+ * else the folder's name. The home wins because plugin options are user-wide: a box with
+ * several homes needs each to name itself.
+ */
+export function selfName(conf: string, option: string, cwd: string): string {
+  return confValue(conf, 'agent_name') ?? (option || basename(cwd))
+}
+
 // ---------------------------------------------------------------------------------------------
 // The home's kit version (kit #4) and the upstream release check (kit #7).
 

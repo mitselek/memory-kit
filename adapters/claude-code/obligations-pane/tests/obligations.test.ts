@@ -26,6 +26,7 @@ import {
   kitVersionOf,
   LINK_FG,
   memoryDirOf,
+  selfName,
   parentDir,
   MIHKEL_COLOR,
   modelLetter,
@@ -369,6 +370,20 @@ describe('wheel step', () => {
     expect(wheelStep(1, 1_150, 1_000)).toEqual({ delta: 1, lastStep: 1_150 })
     expect(wheelStep(0, 5_000, 1_000)).toEqual({ delta: 0, lastStep: 1_000 })
     expect(wheelStep(1, 500, 1_000)).toEqual({ delta: 1, lastStep: 500 })
+  })
+})
+
+describe('the main agent\'s footer name (gh#4)', () => {
+  test("the home's agent_name: first, then the option, then the folder", () => {
+    const named = '# c\nmemory_dir: memory\nagent_name: Brann # D&D\n'
+    expect(selfName(named, 'Passe', '/home/m/Documents/dnd')).toBe('Brann')
+    expect(selfName('memory_dir: memory\n', 'Passe', '/home/m/Documents/dnd')).toBe('Passe')
+    expect(selfName('memory_dir: memory\n', '', '/home/m/Documents/dnd')).toBe('dnd')
+    expect(selfName('', '', '/home/m/passepartout/')).toBe('passepartout')
+  })
+  test('an empty or blank agent_name: falls through', () => {
+    expect(selfName('agent_name:\n', 'Passe', '/x/dnd')).toBe('Passe')
+    expect(selfName('agent_name: ""\n', '', '/x/dnd')).toBe('dnd')
   })
 })
 

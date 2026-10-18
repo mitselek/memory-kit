@@ -10,7 +10,7 @@
     "agentName": {
       "type": "string",
       "title": "Agent name",
-      "description": "The name the footer shows for this session's main agent. Empty uses the working directory's name.",
+      "description": "The name the footer shows for this session's main agent. A home's agent_name: in its memory-kit.conf wins over it. Empty uses the working directory's name.",
       "default": ""
     },
     "memoryDir": {
