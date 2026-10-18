@@ -42,8 +42,9 @@ plugin API (early access; the API moves between releases).
   names get 9 chars + `…`), a colour-coded model letter, and the context weight such as
   `127k/1M`. The letters are F = Fable, O = Opus, S = Sonnet, H = Haiku, and a dim `·` when the model is unknown.
   One more line per live subagent or teammate follows, in the same name and model columns,
-  then its context load (dimmed unless running). The load is the latest model step's input,
-  cache read, cache write and output tokens added together. It reads `84k/1M` when the agent
+  then its context load (dimmed unless running). The load is the latest model step's input side:
+  input, cache read and cache write tokens added together, output left out, as Claude Code
+  computes the status line's `used_percentage` (since 0.6.0; output was added before). It reads `84k/1M` when the agent
   runs on the main loop's model, whose window the session reports, and `84k` alone otherwise:
   windows are never guessed. An agent with no step seen yet shows a dim `·` and no load.
   One more line per running workflow follows (since 0.6.0): its name in the name column, a `≡`

@@ -425,8 +425,8 @@ describe('subagent context load', () => {
     model,
   })
 
-  test('a step sums input, cache read, cache write and output', () => {
-    expect(contextLoad(usage(1_200, 80_000, 2_500, 300))).toBe(84_000)
+  test('a step sums its input side: input, cache read and cache write, not output (as used_percentage)', () => {
+    expect(contextLoad(usage(1_200, 80_000, 2_500, 300))).toBe(83_700)
   })
 
   test('the latest step wins; agents are kept apart', () => {

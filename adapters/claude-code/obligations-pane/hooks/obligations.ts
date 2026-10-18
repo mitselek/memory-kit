@@ -714,9 +714,12 @@ export type StepUsage = {
   model: string
 }
 
-/** A loop's context load after a step: everything the request read plus what it wrote. */
+/**
+ * A loop's context load after a step: the request's input side (uncached, cache read and cache
+ * write), as Claude Code computes the status line's used_percentage. Output is left out (0.6.0).
+ */
 export function contextLoad(u: StepUsage): number {
-  return u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens + u.output_tokens
+  return u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
 }
 
 /**
