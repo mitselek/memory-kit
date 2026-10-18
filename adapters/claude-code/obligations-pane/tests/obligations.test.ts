@@ -16,6 +16,9 @@ import {
   fitName,
   fitWeight,
   isAbsolutePath,
+  journalPhase,
+  labelPhase,
+  liveWorkflows,
   isoDate,
   isFresh,
   isoMinute,
@@ -31,6 +34,12 @@ import {
   parseObligations,
   parseRelease,
   recordStep,
+  recordWorkflowDone,
+  recordWorkflowSpawn,
+  projectSlug,
+  workflowNameOf,
+  workflowTail,
+  MAX_RUNS,
   segmentsOf,
   sortByExpires,
   statusOf,
@@ -496,4 +505,78 @@ describe('urls/ links', () => {
 test('probe: the test environment time zone offset', () => {
   // Informational: the mod falls back to `date +%z` when the environment reports UTC.
   expect(typeof new Date().getTimezoneOffset()).toBe('number')
+})
+
+describe('workflows', () => {
+  test('a spawn counts as started; its finish counts as done', () => {
+    let runs = recordWorkflowSpawn({}, 'wf_1', 'a1', 'Review:bugs')
+    runs = recordWorkflowSpawn(runs, 'wf_1', 'a2', 'Review:perf')
+    runs = recordWorkflowDone(runs, 'a1')
+    expect(runs.wf_1).toEqual({ name: '', phase: '', label: 'Review:perf', started: ['a1', 'a2'], done: ['a1'] })
+  })
+
+  test('a finish of an agent no run started, or twice, changes nothing', () => {
+    const runs = recordWorkflowSpawn({}, 'wf_1', 'a1', 'x')
+    expect(recordWorkflowDone(runs, 'zz')).toEqual(runs)
+    const once = recordWorkflowDone(runs, 'a1')
+    expect(recordWorkflowDone(once, 'a1')).toEqual(once)
+  })
+
+  test('a run is live while it has an agent working; oldest first', () => {
+    let runs = recordWorkflowSpawn({}, 'wf_a', 'a1', 'x')
+    runs = recordWorkflowSpawn(runs, 'wf_b', 'b1', 'y')
+    runs = recordWorkflowDone(runs, 'a1')
+    expect(liveWorkflows(runs).map(([id]) => id)).toEqual(['wf_b'])
+    runs = recordWorkflowSpawn(runs, 'wf_a', 'a2', 'x')
+    expect(liveWorkflows(runs).map(([id]) => id)).toEqual(['wf_a', 'wf_b'])
+  })
+
+  test('finished runs beyond MAX_RUNS are dropped, oldest first; live ones stay', () => {
+    let runs = recordWorkflowSpawn({}, 'live', 'l1', 'x')
+    for (let i = 0; i < MAX_RUNS + 3; i++) {
+      runs = recordWorkflowSpawn(runs, `wf_${i}`, `a${i}`, 'x')
+      runs = recordWorkflowDone(runs, `a${i}`)
+    }
+    expect(Object.keys(runs).length).toBe(MAX_RUNS)
+    expect(runs.live).toBeDefined()
+    expect(runs.wf_0).toBeUndefined()
+  })
+
+  test('the label phase is the part before the first colon', () => {
+    expect(labelPhase('Review:bugs')).toBe('Review')
+    expect(labelPhase(' Verify : a:b')).toBe('Verify')
+    expect(labelPhase('no-colon')).toBe('')
+    expect(labelPhase(':x')).toBe('')
+  })
+
+  test('the journal phase is the last started entry that names one', () => {
+    const journal = [
+      '{"type":"launched"}',
+      '{"type":"started","agentId":"a1","label":"alpha:one","phase":"Alpha"}',
+      '{"type":"result","agentId":"a1","result":"alpha"}',
+      '{"type":"started","agentId":"a2","label":"beta:two","phase":"Beta"}',
+      'not json',
+      '{"type":"started","agentId":"a3","label":"x"}',
+      '',
+    ].join('\n')
+    expect(journalPhase(journal)).toBe('Beta')
+    expect(journalPhase('{"type":"launched"}\n')).toBe('')
+    expect(journalPhase('')).toBe('')
+  })
+
+  test('the name comes from the saved script <name>-<runId>.js', () => {
+    expect(workflowNameOf(['wf-probe-wf_d48fc0e3-8f0.js', 'other-wf_1.js'], 'wf_d48fc0e3-8f0')).toBe('wf-probe')
+    expect(workflowNameOf(['wf-probe-wf_d48fc0e3-8f0.js'], 'wf_other')).toBe('')
+    expect(workflowNameOf(['-wf_x.js'], 'wf_x')).toBe('')
+  })
+
+  test('the project folder name replaces every non-alphanumeric character with a dash', () => {
+    expect(projectSlug('/home/michelek/passepartout')).toBe('-home-michelek-passepartout')
+    expect(projectSlug('/a/b.c_d')).toBe('-a-b-c-d')
+  })
+
+  test('the line tail is phase then done/started', () => {
+    expect(workflowTail('Alpha', 1, 2)).toBe('Alpha 1/2')
+    expect(workflowTail('', 0, 3)).toBe('0/3')
+  })
 })

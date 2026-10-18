@@ -366,6 +366,40 @@ describe('footer agents', () => {
   })
 })
 
+describe('footer workflows', () => {
+  test('a workflow run shows its phase and done/started while an agent works', async ($, on) => {
+    worldOf(on, KIT)
+    mock.clock(on, { now: NOW })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'claude-haiku-5-5', agentId: `w${++n}` }))
+    await $.session.start(SESSION)
+
+    const spawn = (description: string) =>
+      $.agent.spawn({
+        tool_use_id: `tu${description}`,
+        prompt: 'p',
+        description,
+        subagentType: 'workflow-subagent',
+        provider: { plugin: 'engine', tier: 'core' },
+        parentModel: 'claude-opus-5-5',
+        background: true,
+        fork: false,
+        workflow: { runId: 'wf_test', agentIndex: 1 },
+      } as never)
+    await spawn('Review:bugs')
+    await spawn('Review:perf')
+
+    const ui = await mountPane($)
+    // No journal or saved script in the test world: the run id names it, the label gives the phase.
+    expect(await textOf(ui)).toContain('wf_test    ≡ Review 0/2')
+    await $.turn.complete({ answer: 'done', durationMs: 1, isAborted: false, turnId: 't9', reason: 'answer', agentId: 'w1' } as never)
+    expect(await textOf(ui)).toContain('wf_test    ≡ Review 1/2')
+    await $.turn.complete({ answer: 'done', durationMs: 1, isAborted: false, turnId: 't10', reason: 'answer', agentId: 'w2' } as never)
+    expect((await textOf(ui)).some(t => t.startsWith('wf_test'))).toBe(false)
+    await ui.unmount()
+  })
+})
+
 describe('footer context load from turn.step', () => {
   const stepInput = (agentId?: string) => ({
     turnId: 't1',
