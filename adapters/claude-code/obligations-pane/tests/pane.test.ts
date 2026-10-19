@@ -3,7 +3,7 @@ import type { Engine } from 'claude-code/testing'
 
 import { actorColor, LINK_FG, MODEL_COLORS, PANE_BG } from '../hooks/obligations'
 import { PRUSA_URL_FILE, WORKSHOP_YAML } from './fixtures/data'
-import { PANE, PLUGIN, SESSION, tagsAnswer, worldOf } from './fixtures/world'
+import { CWD, PANE, PLUGIN, SESSION, tagsAnswer, worldOf } from './fixtures/world'
 
 const NOW = Date.parse('2026-10-14T12:00:00Z')
 const KIT = {
@@ -622,6 +622,40 @@ describe('the pane follows the home the session started in (kit issue #3)', () =
     await $.session.start({ ...SESSION, cwd: OTHER })
     const ui = await mountPane($)
     expect(await dates(ui)).toHaveLength(6)
+    await ui.unmount()
+  })
+
+  test('installed mid-session (no session.start seen): the session root, not the shell cwd (kit #45)', async ($, on) => {
+    const world = worldOf(on, { ...KIT, [`${OTHER}/memory/obligations.yaml`]: OTHER_YAML })
+    mock.clock(on, { now: NOW })
+    world.cwd = OTHER
+    // No session.start: the first refresh is a turn end.
+    await $.turn.complete({ answer: 'done', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+    const ui = await mountPane($)
+    expect(await dates(ui)).toHaveLength(6)
+    expect(await dates(ui)).not.toContain('2026-01-01')
+    await ui.unmount()
+  })
+
+  test('a start folder below the home finds it and says so (kit #42)', async ($, on) => {
+    const start = `${CWD}/slicer/.worktrees/m4`
+    const world = worldOf(on, { ...KIT, 'memory-kit.conf': 'memory_dir: memory\n' })
+    world.cwd = start
+    world.root = start
+    mock.clock(on, { now: NOW })
+    await $.session.start({ ...SESSION, cwd: start })
+    const ui = await mountPane($)
+    expect(await dates(ui)).toHaveLength(6)
+    expect(await textOf(ui)).toContain(`${start} has no memory-kit.conf; using the nearest one above it, in ${CWD}`)
+    await ui.unmount()
+  })
+
+  test('a start folder that is the home says nothing about finding it', async ($, on) => {
+    worldOf(on, { ...KIT, 'memory-kit.conf': 'memory_dir: memory\n' })
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    expect((await textOf(ui)).some(t => t.includes('nearest one above'))).toBe(false)
     await ui.unmount()
   })
 })

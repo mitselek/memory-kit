@@ -18,6 +18,7 @@ import {
   confValue,
   contextReport,
   expandHome,
+  fileKey,
   idleReport,
   isHuman,
   isInside,
@@ -29,7 +30,7 @@ import {
   ringText,
 } from './watch'
 import type { Doorbell } from './watch'
-import { resolveKitHome } from './kit-home'
+import { foundAboveNote, normalizePath, resolveKitHome } from './kit-home'
 import type { KitHome } from './kit-home'
 
 const startCwd = atom({ plugin: 'watch', key: 'startCwd' } as const, '')
@@ -78,14 +79,27 @@ async function readMaybe($: EngineInterface, path: string): Promise<string | und
 
 /**
  * The kit home (kit #18). The start folder's memory-kit.conf decides first: a `kit_home:` pointer
- * names the home, one hop, and wins over the user-scope `home` option, which applies to every
- * session on the machine. Without a pointer, the option, else the start folder.
+ * names the home, one hop; a start folder without a conf takes the nearest one above it (kit
+ * #42). A home so found wins over the user-scope `home` option, which applies to every session on
+ * the machine. Otherwise the option, else the start folder. The start folder is the first
+ * session.start's; without one (a plugin installed mid-session, kit #45) the session's root,
+ * which a shell cd does not move. The option is normalized as the pointer is (kit #46).
  */
 async function homeOf($: EngineInterface, settings: Settings): Promise<Placed> {
-  const start = (await read($, startCwd)) || (await $.session.cwd())
+  const start = (await read($, startCwd)) || (await $.session.root())
   const found = await resolveKitHome(start, p => readMaybe($, p))
-  if ('problem' in found || found.pointer !== undefined || settings.home === '') return { found, start, viaOption: false }
-  return { found: { home: expandHome(settings.home, start, '') ?? start, ignored: [] }, start, viaOption: true }
+  if ('problem' in found || found.pointer !== undefined || found.foundIn !== undefined || settings.home === '')
+    return { found, start, viaOption: false }
+  return { found: { home: normalizePath(expandHome(settings.home, start, '') ?? start), ignored: [] }, start, viaOption: true }
+}
+
+/** The folder the session started in: its root, which a shell cd does not move (kit #45); `cwd` if the engine gives none. */
+async function startFolder($: EngineInterface, cwd: string): Promise<string> {
+  try {
+    return (await $.session.root()) || cwd
+  } catch {
+    return cwd
+  }
 }
 
 /** The kit home as found, the folder the session started in, and whether the home came from the `home` option. */
@@ -152,11 +166,20 @@ function ask($: EngineInterface, text: string, undo?: () => Promise<void>): void
   )
 }
 
-/** The last-seen sizes, validated out of $.state. */
+/**
+ * The last-seen sizes, validated out of $.state, keyed by fileKey (kit #46). A key an older watch
+ * stored under another spelling folds into its file's key, so an upgrade rings nothing again.
+ */
 async function sizesOf($: EngineInterface): Promise<Record<string, number>> {
   const raw = await read($, bellSizes)
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
-  return Object.fromEntries(Object.entries(raw).filter((e): e is [string, number] => typeof e[1] === 'number'))
+  const sizes: Record<string, number> = {}
+  for (const [file, size] of Object.entries(raw)) {
+    if (typeof size !== 'number') continue
+    const key = fileKey(file)
+    sizes[key] = Math.max(sizes[key] ?? 0, size)
+  }
+  return sizes
 }
 
 /**
@@ -174,7 +197,7 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
 
   const userHome = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? ''
   const sizes = await sizesOf($)
-  const grown: { bell: Doorbell; file: string; old: number; content: string }[] = []
+  const grown: { bell: Doorbell; file: string; key: string; old: number; content: string }[] = []
   let changed = false
   for (const bell of d.bells) {
     const path = expandHome(bell.path, home, userHome)
@@ -183,11 +206,12 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
       continue
     }
     for (const file of await expand($, path)) {
+      const key = fileKey(file)
       const content = await readOrEmpty($, file)
-      const old = sizes[file] ?? 0
-      if (content.length > old) grown.push({ bell, file, old, content })
+      const old = sizes[key] ?? 0
+      if (content.length > old) grown.push({ bell, file, key, old, content })
       if (content.length !== old) {
-        sizes[file] = content.length
+        sizes[key] = content.length
         changed = true
       }
     }
@@ -197,7 +221,7 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
   $.ui.log(`watch: ring (${grown.map(g => bellLabel(g.bell, g.file)).join(', ')})`, { to: 'debug' })
   ask($, combineRings(grown.map(g => ringText(g.bell, g.file, g.old, g.content))), async () => {
     const now = await sizesOf($)
-    for (const g of grown) now[g.file] = Math.min(now[g.file] ?? g.old, g.old)
+    for (const g of grown) now[g.key] = Math.min(now[g.key] ?? g.old, g.old)
     await $.state.set({ plugin: 'watch', key: 'bellSizes' }, now)
   })
 }
@@ -274,6 +298,7 @@ async function status($: EngineInterface, settings: Settings): Promise<string> {
   const confPath = `${home}/memory-kit.conf`
   const d = readDoorbells(conf)
   const lines: string[] = [`home: ${home}${found.pointer !== undefined ? ` (kit_home in ${found.pointer})` : ''}`]
+  if (found.foundIn !== undefined) lines.push(foundAboveNote(start, found.foundIn))
   if (!d.declared) lines.push(`no watch_files in ${confPath}; no doorbells.`)
   else {
     const n = d.bells.length
@@ -332,7 +357,10 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    if ((await read($, startCwd)) === '') await $.state.set({ plugin: 'watch', key: 'startCwd' }, e.cwd)
+    // The first start only (a reload fires it again, by then maybe after a cd). That first start
+    // may be an install or enable mid-session, whose e.cwd is the shell's folder after any cd:
+    // the session's root is not moved by a cd (kit #45).
+    if ((await read($, startCwd)) === '') await $.state.set({ plugin: 'watch', key: 'startCwd' }, await startFolder($, e.cwd))
     if (retiredOption !== undefined) await tellOnce($, retiredOption)
     await markActivity($)
     await $.command.register({ name: 'watch', description: 'Show the doorbells and session reports active in this home' })

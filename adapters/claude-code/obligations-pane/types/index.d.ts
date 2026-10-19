@@ -37,6 +37,8 @@ export type PaneSnapshot = {
   items: ObligationRow[]
   /** urls/<name> -> URL, for every name the items cite that resolved. */
   urls: Record<string, string>
+  /** kit #42: the note when the home came from a memory-kit.conf above the start folder; '' otherwise. */
+  foundAbove: string
   /** Milliseconds since the epoch when the snapshot was taken. */
   now: number
   /** Local UTC offset in minutes east, for "today". */

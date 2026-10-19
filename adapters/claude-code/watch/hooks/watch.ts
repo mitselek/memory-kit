@@ -192,6 +192,16 @@ export function isWindowsPath(path: string): boolean {
   return /^([A-Za-z]:[\\/]|\\\\)/.test(path)
 }
 
+/**
+ * The key a file's bookkeeping goes by (kit #46): one per file however its path is spelled --
+ * separators and `.`/`..` normalized, a Windows path (drive or UNC, either slash) case-folded.
+ * Two spellings of one spool once kept two bookmarks, and each new line rang twice.
+ */
+export function fileKey(path: string): string {
+  const key = normalPath(path)
+  return isWindowsPath(path.replaceAll('/', '\\')) ? key.toLowerCase() : key
+}
+
 /** Whether `dir` is `home` or lies inside it. A Windows path folds case. Symlinks are not followed. */
 export function isInside(dir: string, home: string): boolean {
   const fold = (p: string) => (isWindowsPath(p) ? p.toLowerCase() : p)

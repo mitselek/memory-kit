@@ -28,6 +28,8 @@ export type World = {
   files: Map<string, string>
   /** What $.session.cwd() answers now: a shell cd mid-session moves it. */
   cwd: string
+  /** What $.session.root() answers: the folder the session started in; a shell cd does not move it (kit #45). */
+  root: string
   model: string
   tokens: number | undefined
   window: number
@@ -59,6 +61,7 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, store: 
   const world: World = {
     files: new Map(Object.entries(files).map(([p, t]) => [abs(p), t])),
     cwd: CWD,
+    root: CWD,
     model: 'claude-opus-5-5',
     tokens: 127_400,
     window: 1_000_000,
@@ -81,6 +84,7 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, store: 
     return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text }
   })
   on('session.cwd', () => ({ value: world.cwd }))
+  on('session.root', () => ({ value: world.root }))
   on('session.model', () => ({ value: world.model }))
   on('session.usage', () => ({
     value: {

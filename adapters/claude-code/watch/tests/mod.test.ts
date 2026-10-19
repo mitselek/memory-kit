@@ -348,6 +348,46 @@ describe('/watch', () => {
   })
 })
 
+describe('the start folder and path spellings (kit #42, #45, #46)', () => {
+  const SPOOL_CONF = (path: string) => `watch_files:\n  - label: "spool"\n    path: ${path}\n    instruction: ""\n    inject: true\n`
+
+  test('a start folder below the home finds it; /watch says where it looked', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF })
+    world.cwd = world.root = `${CWD}/sub/worktree`
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start({ ...SESSION, cwd: world.cwd })
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toContain(`home: ${CWD}`)
+    expect(text).toContain(`${CWD}/sub/worktree has no memory-kit.conf; using the nearest one above it, in ${CWD}`)
+    expect(text).toContain('2 doorbells')
+  })
+
+  test('enabled mid-session after a shell cd: the session root, not the cd folder', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, '/home/u/other/memory-kit.conf': 'memory_dir: memory\n' })
+    world.cwd = '/home/u/other'
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start({ ...SESSION, cwd: '/home/u/other' })
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toContain(`home: ${CWD}\n`)
+  })
+
+  test('one file under two spellings keeps one bookmark: each new line rings once', async ($, on) => {
+    const conf = `${SPOOL_CONF('inbound/spool.txt')}  - label: "spool"\n    path: ./inbound/../inbound/spool.txt\n    instruction: ""\n    inject: true\n`
+    const world = worldOf(on, { 'memory-kit.conf': conf, 'inbound/spool.txt': '' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    world.files.set(`${CWD}/inbound/spool.txt`, 'line 1\n')
+    await clock.advance(5_000)
+    world.files.set(`${CWD}/inbound/spool.txt`, 'line 1\nline 2\n')
+    await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(2)
+    expect(world.submitted.join('\n').match(/line 2/g)).toHaveLength(1)
+  })
+})
+
 describe('the home option (user scope)', () => {
   test('a session outside the option home rings nothing there, one notice; its own sensors still run', { options: { home: '/elsewhere' } }, async ($, on) => {
     const world = worldOf(on, {

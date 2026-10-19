@@ -5,7 +5,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { ObligationRow, PaneAgent, PaneSnapshot } from '../types'
-import { resolveKitHome } from './kit-home'
+import { foundAboveNote, resolveKitHome } from './kit-home'
 import {
   actorColor,
   cachedCheck,
@@ -189,17 +189,28 @@ async function kitOf($: EngineInterface, cwd: string, root: string, checkUpdates
   return { kitVersion, upstreamUrl: url, latest }
 }
 
+/** The folder the session started in: its root, which a shell cd does not move (kit #45); `cwd` if the engine gives none. */
+async function startFolder($: EngineInterface, cwd: string): Promise<string> {
+  try {
+    return (await $.session.root()) || cwd
+  } catch {
+    return cwd
+  }
+}
+
 /** Gathers everything the pane draws and writes it to state in one go. No network. */
 export async function refresh($: EngineInterface, settings: Settings): Promise<void> {
   const { agentName, memoryDir, checkUpdates } = settings
   const now = await $.clock.now()
   // The home is where the session started (kit issue #3): a shell cd into another repo
-  // mid-session must not switch the ledger. $.session.cwd() only when no start was seen.
-  const cwd = (await read($, startCwd)) || (await $.session.cwd())
-  // kit #18: the start folder's memory-kit.conf may point at the home (kit_home:, one hop). The
-  // pointer wins over the user-scope memoryDir option, which applies to every session.
+  // mid-session must not switch the ledger. Without a start seen (a plugin installed mid-session,
+  // kit #45), the session's root: a shell cd does not move it, as it moves $.session.cwd().
+  const cwd = (await read($, startCwd)) || (await $.session.root())
+  // kit #18: the start folder's memory-kit.conf may point at the home (kit_home:, one hop); kit
+  // #42: a start folder without one takes the nearest above it. A home so found wins over the
+  // user-scope memoryDir option, which applies to every session.
   const found = await resolveKitHome(cwd, async p => ((await $.fs.exists(p)) ? $.fs.read(p) : undefined))
-  const pointed = !('problem' in found) && found.pointer !== undefined ? found.home : undefined
+  const pointed = !('problem' in found) && (found.pointer !== undefined || found.foundIn !== undefined) ? found.home : undefined
   const home = pointed ?? cwd
   const conf = await readOrEmpty($, `${home}/memory-kit.conf`)
   const root = memoryRoot(home, conf, pointed !== undefined ? '' : memoryDir)
@@ -240,6 +251,7 @@ export async function refresh($: EngineInterface, settings: Settings): Promise<v
     path,
     ...ledger,
     urls,
+    foundAbove: !('problem' in found) && found.foundIn !== undefined ? foundAboveNote(cwd, found.foundIn) : '',
     ...('problem' in found ? { kitVersion: '', upstreamUrl: '', latest: '' } : await kitOf($, cwd, root, checkUpdates, pointed)),
     now,
     offsetMinutes: await offsetOf($, now),
@@ -329,7 +341,7 @@ async function refreshAll($: EngineInterface, settings: Settings): Promise<void>
  */
 async function sessionDir($: EngineInterface): Promise<string> {
   const config = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${(await $.env.get('HOME')) ?? ''}/.claude`
-  const cwd = (await read($, startCwd)) || (await $.session.cwd())
+  const cwd = (await read($, startCwd)) || (await $.session.root())
   return `${config}/projects/${projectSlug(cwd)}/${await $.session.id()}`
 }
 
@@ -377,8 +389,10 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     // Kept in $.state, which outlives a reload: a reload fires session.start again with the
-    // directory the session is in by then, so only the first start sets it.
-    if ((await read($, startCwd)) === '') await $.state.set({ plugin: 'obligations-pane', key: 'startCwd' }, e.cwd)
+    // directory the session is in by then, so only the first start sets it. That first start may
+    // be an install or enable mid-session, whose e.cwd is the shell's folder after any cd: the
+    // session's root is not moved by a cd (kit #45).
+    if ((await read($, startCwd)) === '') await $.state.set({ plugin: 'obligations-pane', key: 'startCwd' }, await startFolder($, e.cwd))
     await $.command.register({ name: 'obligations', description: 'Open the obligations pane (memory/obligations.yaml)' })
     await safeRefresh($, settings)
     timer?.cancel()
@@ -541,6 +555,14 @@ export const register: Register = (on, options) => {
       )
     }
 
+    // kit #42: a home found above the start folder is said, so a surprising home is visible.
+    // `?? ''`: a snapshot an older module wrote before a hot reload has no such field.
+    const foundAbove = (snap.foundAbove ?? '') !== '' && (
+      <Text key="found-above" color={DATE_FG} dimColor wrap="wrap">
+        {snap.foundAbove}
+      </Text>
+    )
+
     const body =
       snap.source === 'missing' ? (
         <Text color={DATE_FG}>no obligations file here ({snap.path})</Text>
@@ -598,6 +620,7 @@ export const register: Register = (on, options) => {
       <Box backgroundColor={PANE_BG} flexDirection="column" height={rows}>
         {header}
         <Box key="body" flexDirection="column" flexGrow={1} flexShrink={1} overflow="hidden" gap={1} paddingTop={1}>
+          {foundAbove}
           {body}
         </Box>
         {footer}
