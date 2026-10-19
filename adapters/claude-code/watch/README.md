@@ -100,9 +100,8 @@ watch_context_percent: 50, 60, 70, 80
   long. One report re-reads the whole context at the cache-read price: about 1% of a working
   day's input at 240k tokens; a night of reports costs about half of one uncached re-read, and a
   weekend away about three (a household estimate at the usual cache prices, 19.10.2026). A home
-  that retires by its context gauge, not
-  by idleness, should not declare `watch_retire_step` with it: every report would quote that
-  step.
+  that retires by its context gauge, not by idleness, should not declare `watch_retire_step`
+  with it: every report would quote that step.
 - **Context:** percent marks of the window (1-99), against the exact
   `$.session.usage()` reading. Crossing a mark gives one report naming the load and the mark;
   each mark fires once per session; a jump over several names the highest. A compaction that
