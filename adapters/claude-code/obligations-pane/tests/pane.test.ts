@@ -865,7 +865,7 @@ describe('a folder that is not a kit home (kit #35: a user-scope install loads t
 
   test('silent: the pane does not open, no request upstream, no log line; only /obligations is registered', async ($, on) => {
     const world = worldOf(on, {})
-    world.cwd = OTHER.cwd
+    world.cwd = world.root = OTHER.cwd
     world.answer = () => tagsAnswer('v0.1.0-alpha.99')
     const clock = mock.clock(on, { now: NOW })
     await $.session.start(OTHER)
@@ -879,7 +879,7 @@ describe('a folder that is not a kit home (kit #35: a user-scope install loads t
 
   test('/obligations there opens the pane, which says it found no file', async ($, on) => {
     const world = worldOf(on, {})
-    world.cwd = OTHER.cwd
+    world.cwd = world.root = OTHER.cwd
     mock.clock(on, { now: NOW })
     await $.session.start(OTHER)
     await $.command.run({ command: 'obligations', args: '', origin: { kind: 'composer' } } as never)
@@ -891,7 +891,7 @@ describe('a folder that is not a kit home (kit #35: a user-scope install loads t
 
   test('a user-scope memoryDir is not silent: every session reads that home and opens the pane', { options: { memoryDir: '/srv/home/memory' } }, async ($, on) => {
     const world = worldOf(on, { '/srv/home/memory/obligations.yaml': WORKSHOP_YAML })
-    world.cwd = OTHER.cwd
+    world.cwd = world.root = OTHER.cwd
     mock.clock(on, { now: NOW })
     await $.session.start(OTHER)
     expect(world.opened).toEqual(['obligations'])
