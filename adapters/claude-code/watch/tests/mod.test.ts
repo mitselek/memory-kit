@@ -270,6 +270,54 @@ describe('session reports: idle and context marks', () => {
     expect(world.submitted).toHaveLength(1)
   })
 
+  test('idle, repeating (kit #47): a report every further interval while idle; a human still arms it first', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: true\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(2 * 60 * MIN)
+    expect(world.submitted).toEqual([])
+    await $.prompt.submit(typed('work on the thing') as never)
+    await $.turn.complete({ answer: 'done', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+    await clock.advance(50 * MIN)
+    expect(world.submitted).toHaveLength(1)
+    expect(world.submitted[0]).toContain('idle for 50 min (the watch_idle_minutes mark in memory-kit.conf, repeating while idle (watch_idle_repeat))')
+    expect(world.submitted[0]).toContain('information only')
+    // The report's own turn ends; the next report comes a full interval after it, and so on.
+    await $.turn.complete({ answer: 'noted', durationMs: 1, isAborted: false, turnId: 't2', reason: 'answer' })
+    await clock.advance(49 * MIN)
+    expect(world.submitted).toHaveLength(1)
+    await clock.advance(MIN)
+    expect(world.submitted).toHaveLength(2)
+    await $.turn.complete({ answer: 'noted', durationMs: 1, isAborted: false, turnId: 't3', reason: 'answer' })
+    await clock.advance(50 * MIN)
+    expect(world.submitted).toHaveLength(3)
+  })
+
+  test('idle, repeating: a report whose turn never starts still waits a full interval for the next', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: true\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await $.prompt.submit(typed('work') as never)
+    world.refuse = 'busy elsewhere'
+    await clock.advance(50 * MIN)
+    await clock.advance(10 * MIN)
+    expect(world.attempts).toHaveLength(1)
+    await clock.advance(40 * MIN)
+    expect(world.attempts).toHaveLength(2)
+  })
+
+  test('watch_idle_repeat: false, or absent, is once per stretch; a bad value is once too, and said', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: yes\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await $.prompt.submit(typed('work') as never)
+    await clock.advance(50 * MIN)
+    await $.turn.complete({ answer: 'noted', durationMs: 1, isAborted: false, turnId: 't2', reason: 'answer' })
+    await clock.advance(3 * 60 * MIN)
+    expect(world.submitted).toHaveLength(1)
+    expect(world.logs).toContain('debug: watch: watch_idle_repeat: true or false, not "yes"')
+  })
+
   test('not declared: no idle report however long the silence', async ($, on) => {
     const world = worldOf(on, { 'memory-kit.conf': 'memory_dir: memory\n' })
     const clock = mock.clock(on, { now: NOW })
@@ -335,6 +383,15 @@ describe('/watch', () => {
     expect(text).toContain('"consume the inbox')
     expect(text).toContain('[(links.txt)] ~/spool/links.txt  inject')
     expect(text).toContain('idle: report at 50 min; context: report at 50, 70% of the window')
+  })
+
+  test('says a repeating idle report', async ($, on) => {
+    worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: true\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toContain('idle: report at 50 min, repeating; context: off')
   })
 
   test('with nothing declared says so', async ($, on) => {

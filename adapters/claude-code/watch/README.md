@@ -14,8 +14,8 @@ archives anything, and never says what a signal means: that is the home's own ru
    `$.prompt.submit`, which queues until the session is idle and starts a turn of its own,
    marked as coming from the plugin.
 2. **Session sensors** (`watch_idle_minutes`, `watch_context_percent`): one report when the
-   session has sat idle past the mark, one when its context crosses each declared percent of the
-   window.
+   session has sat idle past the mark (again after each further interval, with
+   `watch_idle_repeat: true`), one when its context crosses each declared percent of the window.
 
 **What it costs: every ring or report is a full turn** (kit #17). The turn carries the session's
 whole context, so on a long session one prompt costs hundreds of thousands of input tokens, even
@@ -81,6 +81,7 @@ declaring `watch_sources` (watch 0.4.x and older) gets one migration notice: dec
 
 ```yaml
 watch_idle_minutes: 50
+watch_idle_repeat: true          # optional (kit #47): report again after each further interval
 watch_context_percent: 50, 60, 70, 80
 ```
 
@@ -89,6 +90,19 @@ watch_context_percent: 50, 60, 70, 80
   `watch_retire_step`, the report quotes it as the home's own declared step. The report is armed
   by a human prompt and disarmed by firing, so one working stretch gets one report -- the watch's
   own rings never arm it, and a session no human spoke to is never pinged idle.
+- **Idle, repeating** (`watch_idle_repeat: true`, kit #47): a report leaves the watch armed, so
+  while the session stays idle a report comes every `watch_idle_minutes`, each a full interval
+  after the last (also when a report's turn never starts). A human prompt still arms it first.
+  This is a **prompt-cache keep-alive**: each report is a turn, and a turn re-reads the cached
+  context before the cache's hour runs out. At 50 minutes the next turn after a long idle reads
+  the cache instead of the whole context uncached, and Claude Code's idle compaction (which
+  fires at about 54 idle minutes; see the adapters README) never sees the session idle that
+  long. One report re-reads the whole context at the cache-read price: about 1% of a working
+  day's input at 240k tokens; a night of reports costs about half of one uncached re-read, and a
+  weekend away about three (a household estimate at the usual cache prices, 19.10.2026). A home
+  that retires by its context gauge, not
+  by idleness, should not declare `watch_retire_step` with it: every report would quote that
+  step.
 - **Context:** percent marks of the window (1-99), against the exact
   `$.session.usage()` reading. Crossing a mark gives one report naming the load and the mark;
   each mark fires once per session; a jump over several names the highest. A compaction that

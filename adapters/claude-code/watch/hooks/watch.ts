@@ -233,6 +233,18 @@ export function confIdleMinutes(conf: string): ConfNumbers {
   return confNumbers(conf, 'watch_idle_minutes', 1)
 }
 
+/**
+ * `watch_idle_repeat: true` (kit #47): the idle report recurs after each further idle interval,
+ * instead of once per working stretch. Its turn re-reads the prompt cache before the cache's hour
+ * runs out: a keep-alive for a long session. `false` or absent: once.
+ */
+export function confIdleRepeat(conf: string): { on: boolean; problem?: string } {
+  const raw = confValue(conf, 'watch_idle_repeat')
+  if (raw === undefined || raw === 'false') return { on: false }
+  if (raw === 'true') return { on: true }
+  return { on: false, problem: `true or false, not "${raw}"` }
+}
+
 /** `watch_context_percent: 50, 60, 70, 80` -- percent marks of the window, 1-99, sorted. */
 export function confContextPercent(conf: string): ConfNumbers {
   const read = confNumbers(conf, 'watch_context_percent', Infinity)
@@ -274,8 +286,9 @@ export function contextReport(mark: number, tokens: number, window: number): str
  * The idle report: information only. A declared watch_retire_step is quoted as the home's own
  * declared step, decided by the home, not by the watch.
  */
-export function idleReport(idleMinutes: number, retireStep: string | undefined): string {
-  const head = `[watch] This session has been idle for ${idleMinutes} min (the watch_idle_minutes mark in memory-kit.conf).`
+export function idleReport(idleMinutes: number, retireStep: string | undefined, repeat = false): string {
+  const mark = repeat ? 'the watch_idle_minutes mark in memory-kit.conf, repeating while idle (watch_idle_repeat)' : 'the watch_idle_minutes mark in memory-kit.conf'
+  const head = `[watch] This session has been idle for ${idleMinutes} min (${mark}).`
   const tail = retireStep === undefined ? 'This is information only; what idleness means here is this home\'s own rule.' : `The home's declared step for this (watch_retire_step): ${retireStep}.`
   return `${head} ${tail}`
 }
