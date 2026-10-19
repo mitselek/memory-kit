@@ -61,7 +61,7 @@ describe('the pane over the workshop ledger', () => {
     mock.clock(on, { now: NOW })
     await $.session.start(SESSION)
     expect(world.opened).toEqual(['obligations'])
-    expect(world.commands).toEqual(['obligations'])
+    expect(world.commands).toEqual(['obligations', 'memory-pane'])
   })
 
   test('scrolls one item at a time, within bounds', async ($, on) => {
@@ -586,10 +586,10 @@ describe('mouse wheel', () => {
     expect(result).toEqual({})
     expect(await header()).toBe(before.header)
     expect(await footer()).toBe(before.footer)
-    // The k / j buttons are mounted (hotkeys) but sit in a Box that is not displayed.
-    const hidden = (await ui.findAll({ type: 'Box' })).find(b => b.props.display === 'none')
-    expect(hidden).toBeDefined()
-    expect(hidden?.text).toBe('▲▼')
+    // The k / j buttons are mounted (hotkeys) but sit in a Box that is not displayed; so do the
+    // tab hotkeys 1-8 (kit #43).
+    const hidden = (await ui.findAll({ type: 'Box' })).filter(b => b.props.display === 'none').map(b => b.text)
+    expect(hidden).toEqual(['ONCRLFKS', '▲▼'])
     await ui.unmount()
   })
 })
@@ -863,7 +863,7 @@ describe('a folder that is not a kit home (kit #35: a user-scope install loads t
   // No memory-kit.conf, no memory, no memory-kit/VERSION: a session started anywhere else.
   const OTHER = { ...SESSION, cwd: '/home/u/src/other-repo' }
 
-  test('silent: the pane does not open, no request upstream, no log line; only /obligations is registered', async ($, on) => {
+  test('silent: the pane does not open, no request upstream, no log line; only /obligations and /memory-pane are registered', async ($, on) => {
     const world = worldOf(on, {})
     world.cwd = world.root = OTHER.cwd
     world.answer = () => tagsAnswer('v0.1.0-alpha.99')
@@ -874,7 +874,7 @@ describe('a folder that is not a kit home (kit #35: a user-scope install loads t
     expect(world.opened).toEqual([])
     expect(world.requests).toEqual([])
     expect(world.logs).toEqual([])
-    expect(world.commands).toEqual(['obligations'])
+    expect(world.commands).toEqual(['obligations', 'memory-pane'])
   })
 
   test('/obligations there opens the pane, which says it found no file', async ($, on) => {
@@ -895,5 +895,167 @@ describe('a folder that is not a kit home (kit #35: a user-scope install loads t
     mock.clock(on, { now: NOW })
     await $.session.start(OTHER)
     expect(world.opened).toEqual(['obligations'])
+  })
+})
+
+describe('the memory pane: one tab per tier (kit #43)', () => {
+  const HOME = {
+    ...KIT,
+    'memory/scratchpad.yaml': 'current:\n- label: WIP\n  record: "check urls/prusa-start-ooze-issue"\n  ref: ""\nstaging: []\n',
+    'memory/commitments.yaml': 'commitments:\n- trigger: an invoice arrives\n  obligation: file it\n  actor: Kit\n  owed_to: Mihkel\n  within: 3 days\n  ref: ""\n',
+    'memory/rules.yaml': 'rules:\n- rule: Never send unconfirmed.\n  ref: ""\n- rule: "See urls/gone-file first."\n  ref: ""\n',
+    'memory/lessons/index.yaml':
+      'lessons:\n- slug: one\n  summary: A linted lesson.\n  learned: "2026-10-01"\n  ref: ""\n  enforcement: linted\n- slug: two\n  summary: A remembered lesson.\n  learned: "2026-10-10"\n  ref: ""\n  enforcement: recognition\n',
+    'memory/facts/box.yaml': 'facts:\n- fact: The box runs Ubuntu.\n  ref: ""\n  refute: "=ref"\n  verified: 2026-10-01\n',
+    'memory/keys.yaml': 'keys:\n- subject: codeberg\n  holder: kit\n  scope: issues\n  granted: 2026-08-22\n  revoke: ""\n  ref: ""\n',
+    'memory/secrets/README.md':
+      '- **Public key (encrypt-only, safe to commit):** age1example\n- **Master key location (a PATH, never the key):** ~/.config/kit/age.key\n- **Spare deposited:** 2026-09-13 — **where:** the safe — **verified:** 2026-09-14\n',
+    'memory/secrets/token.age': 'SECRET-BYTES-NEVER-SHOWN',
+  }
+  const header = async (ui: Parameters<typeof textOf>[0]) => (await textOf(ui)).find(t => t.startsWith('memory-kit '))
+  const tabRow = async (ui: Parameters<typeof textOf>[0]) => (await textOf(ui)).filter(t => /^\[.+\]$/.test(t))
+  /** Presses a tab, then lets the refresh it starts finish. */
+  const open = async (ui: Awaited<ReturnType<typeof mountPane>>, clock: { advance: (ms: number) => Promise<void> }, id: string) => {
+    await ui.press({ key: `tab-${id}` })
+    await clock.advance(0)
+  }
+
+  test('the tab row sits above the header: the open tab by name, the others by letter; O is the default', async ($, on) => {
+    worldOf(on, HOME)
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    expect(await tabRow(ui)).toEqual(['[Obligations]', '[N]', '[C]', '[R]', '[L]', '[F]', '[K]', '[S]'])
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  0 expired · 1 due ≤7d')
+    await ui.unmount()
+  })
+
+  test('each tab renders its tier, with its own count in the header; the letters stay clickable', async ($, on) => {
+    worldOf(on, HOME)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    const seen: Record<string, [string | undefined, string[]]> = {}
+    for (const id of ['N', 'C', 'R', 'L', 'F', 'K', 'S']) {
+      await open(ui, clock, id)
+      seen[id] = [await header(ui), await textOf(ui)]
+    }
+    expect(seen.N?.[0]).toBe('memory-kit 0.1.0-alpha.5  1/15 current · 0 staging')
+    expect(seen.N?.[1]).toContain('WIP')
+    expect(seen.C?.[0]).toBe('memory-kit 0.1.0-alpha.5  1 commitment')
+    expect(seen.C?.[1].join(' ')).toContain('an invoice arrives -> file it')
+    expect(seen.R?.[0]).toBe('memory-kit 0.1.0-alpha.5  2/20')
+    expect(seen.L?.[0]).toBe('memory-kit 0.1.0-alpha.5  2 lessons')
+    expect(seen.F?.[0]).toBe('memory-kit 0.1.0-alpha.5  1 fact · 1 subject')
+    expect(seen.K?.[0]).toBe('memory-kit 0.1.0-alpha.5  1 grant · 1 finding')
+    expect(seen.K?.[1]).toContain(' no revoke step (a finding)')
+    expect(seen.S?.[0]).toBe('memory-kit 0.1.0-alpha.5  1 encrypted file')
+    expect(await tabRow(ui)).toEqual(['[O]', '[N]', '[C]', '[R]', '[L]', '[F]', '[K]', '[Secrets]'])
+    await open(ui, clock, 'O')
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  0 expired · 1 due ≤7d')
+    await ui.unmount()
+  })
+
+  test('the tab and the lessons filter are remembered per home in $.store, never in the home', async ($, on) => {
+    const world = worldOf(on, HOME)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    await open(ui, clock, 'L')
+    await ui.press({ key: 'chip-linted' })
+    await clock.advance(0)
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  1/2 linted')
+    expect((await textOf(ui)).join(' ')).not.toContain('A remembered lesson.')
+    expect(world.store[`view:${CWD}`]).toEqual({ tab: 'L', lessons: 'linted' })
+    expect([...world.files.keys()].filter(f => !Object.keys(HOME).some(k => f.endsWith(k)))).toEqual([])
+    await ui.unmount()
+  })
+
+  test('a restart opens on the remembered tab and filter', async ($, on) => {
+    worldOf(on, HOME, { [`view:${CWD}`]: { tab: 'L', lessons: 'linted' } })
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    expect((await tabRow(ui)).slice(4, 5)).toEqual(['[Lessons]'])
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  1/2 linted')
+    expect(await textOf(ui)).toContain('[linted]')
+    await ui.unmount()
+  })
+
+  test('no commitments.yaml: the tier is not in use, and the other tabs are fine', async ($, on) => {
+    const { 'memory/commitments.yaml': _, ...rest } = HOME
+    worldOf(on, rest)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    await open(ui, clock, 'C')
+    expect(await textOf(ui)).toContain('commitments tier not in use here')
+    await open(ui, clock, 'R')
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  2/20')
+    await ui.unmount()
+  })
+
+  test('a malformed rules.yaml is its error on R; O still renders', async ($, on) => {
+    worldOf(on, { ...HOME, 'memory/rules.yaml': 'rules:\n- rule: x\n   ref: y\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    await open(ui, clock, 'R')
+    expect((await textOf(ui)).some(t => /^rules.yaml unreadable: line 3: /.test(t))).toBe(true)
+    await open(ui, clock, 'O')
+    expect((await textOf(ui)).filter(t => /^\d{4}-\d{2}-\d{2}$/.test(t))).toHaveLength(6)
+    await ui.unmount()
+  })
+
+  test('urls/<name> links in every tab: live when the file is there, struck through when not', async ($, on) => {
+    worldOf(on, HOME)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    await open(ui, clock, 'N')
+    expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://github.com/prusa3d/PrusaSlicer-settings-prusa-fff/issues/49')
+    await open(ui, clock, 'R')
+    const dead = (await ui.findAll({ type: 'Text' })).find(t => t.text === 'urls/gone-file')
+    expect(dead?.props.strikethrough).toBe(true)
+    await ui.unmount()
+  })
+
+  test('S: names and dates only; no byte of an encrypted file is read or drawn', async ($, on) => {
+    const world = worldOf(on, HOME)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    await open(ui, clock, 'S')
+    const texts = await textOf(ui)
+    expect(texts.join('\n')).not.toContain('SECRET-BYTES')
+    expect(world.readPaths.filter(p => p.endsWith('.age'))).toEqual([])
+    expect(texts).toContain('token.age 2026-09-13')
+    expect(texts.join(' ')).toContain('2026-09-13')
+    await ui.unmount()
+  })
+
+  test('S: a secrets folder with only the README is a non-compliance banner', async ($, on) => {
+    const { 'memory/secrets/token.age': _, ...rest } = HOME
+    worldOf(on, rest)
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    const ui = await mountPane($)
+    await open(ui, clock, 'S')
+    expect(await textOf(ui)).toContain('secrets tier not kit-compliant: no encrypted file beside the README')
+    await ui.unmount()
+  })
+
+  test('/obligations opens on the Obligations tab; /memory-pane on the open one', async ($, on) => {
+    worldOf(on, HOME, { [`view:${CWD}`]: { tab: 'R', lessons: 'all' } })
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    expect((await $.command.run({ command: 'memory-pane', args: '', origin: { kind: 'composer' } } as never)).text).toBe('Memory pane opened.')
+    let ui = await mountPane($)
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  2/20')
+    await ui.unmount()
+    await $.command.run({ command: 'obligations', args: '', origin: { kind: 'composer' } } as never)
+    ui = await mountPane($)
+    expect(await header(ui)).toBe('memory-kit 0.1.0-alpha.5  0 expired · 1 due ≤7d')
+    await ui.unmount()
   })
 })

@@ -1,10 +1,57 @@
-# obligations-pane
+# obligations-pane: the memory pane
 
-A Claude Code side pane (a function-hooks mod) that shows a memory-kit home's obligations
-tier: `memory/obligations.yaml`, soonest expiry first. Built against Claude Code 2.1.296's
-plugin API (early access; the API moves between releases).
+A Claude Code side pane (a function-hooks mod) over a memory-kit home's memory, one tab per tier
+(since 0.7.0, kit #43; it showed the obligations tier alone before). The Obligations tab is the
+pane as it was: `memory/obligations.yaml`, soonest expiry first. Built against Claude Code
+2.1.296's plugin API (early access; the API moves between releases). The plugin keeps its id,
+`obligations-pane@memory-kit`, so a home updates it as before; the pane's title is "Memory".
 
-## What it shows
+## Tabs (kit #43)
+
+```
+[Obligations][N][C][R][L][F][K][S]
+```
+
+A tab row sits above the header. The open tab shows its full name, the others one letter, so the
+row fits a narrow pane; it wraps onto a second line when even that does not fit. Click a tab, or
+press its digit (1-8) while the pane has the keyboard. Obligations is the default.
+
+| Tab | Source (in the memory directory) | Shows | Header count |
+|---|---|---|---|
+| **O** Obligations | `obligations.yaml` | as below ("What it shows") | `N expired · M due ≤7d` |
+| **N** Next | `scratchpad.yaml` | `current`, then `staging`, each under its heading; a row is its label, record, then ref (dim) | `13/15 current · 4 staging` |
+| **C** Commitments | `commitments.yaml` | `trigger -> obligation`, then `actor -> owed_to, within …` (dim). No file: "commitments tier not in use here" | `N commitments` |
+| **R** Rules | `rules.yaml` | numbered | `18/20` |
+| **L** Lessons | `lessons/index.yaml` | the summary, newest `learned` first, its enforcement before it and the date after; the line links to `lessons/<slug>.md` (a `file://` URL; where the terminal opens none, plain text). A chip row under the header filters: `[all][hooked][linted][recognition]` | `N lessons`, or `3/12 linted` |
+| **F** Facts | `facts/*.yaml` | grouped by subject (the file's name), each fact after its `verified` date; a fact not verified in 91 days (a quarter), or never, is dim | `N facts · M subjects · K not verified in 91 days` |
+| **K** Keys | `keys.yaml` | per grant: subject, holder · scope, then the revoke step. A blank `revoke` is flagged "no revoke step (a finding)"; one containing `[?]` "revoke step unconfirmed" | `N grants · F findings` |
+| **S** Secrets | `secrets/README.md` and the `secrets/` listing | the README's three labelled lines (public key, master key location, spare deposited / where / verified), then the encrypted files by name and date. A spare `NOT YET` deposited or verified is flagged | `N encrypted files` |
+
+- **Read-only, every tab.** The pane never writes into the home. The open tab and the lessons
+  filter are remembered per home in the plugin's own `$.store` (keyed by the resolved home
+  path), so a reload or a restart opens where the person left it.
+- **Only the open tab is read**, at each refresh (every 20 s and at turn end), besides
+  obligations: a tab more costs no reads until it is opened. Facts read at most 200 files.
+- **A broken file breaks its own tab only**: a tier the parser rejects shows
+  `<file> unreadable: line N: <why>` in its tab; a broken facts file is flagged under its subject
+  while the other subjects show. Every tier goes through the obligations parser's own strict
+  reader (`parseMapLists` in `hooks/obligations.ts`): the kit's one shape, a top-level key holding
+  a list of flat maps (`memory-kit/types/memory-*.ts`). A missing file says
+  `no <file> here (<path>)`.
+- **Secrets: names, paths and dates only.** The tab reads the README and a directory listing,
+  never an encrypted file. It assumes a kit-compliant home: a missing README, a label missing or
+  left as the skeleton ships it (`_fill in_`), or no encrypted file beside the README turns the
+  top of the tab into a red banner naming what is off. A home that keeps its secrets elsewhere
+  (an OS key store) shows the banner: that is the home's debt, not the pane's to hide.
+- **`urls/<name>` is a link in every tab**, by the same rule as obligations: struck through and
+  grey when the file is missing or unusable.
+- Scrolling (wheel, `k` / `j`) steps through the open tab's lines; a new tab starts at the top.
+- `/obligations` opens the pane on the Obligations tab; `/memory-pane` opens it on the open tab
+  (not `/memory`: that is Claude Code's built-in memory command, and the harness refuses it).
+- Not shown: `dormant/` (parked facts) and `urls/` (they are links everywhere). Only
+  `scratchpad.yaml` is the Next tab; a team home's other scratchpads are not.
+
+## What it shows (the Obligations tab)
 
 - **Header** (sticky, dark on the pastel), bold: the home's kit version, then the counts
   `N expired · M due ≤7d`, then the scroll position `i/n`. For example
@@ -187,8 +234,10 @@ kit_home: ../desk        # absolute, or relative to this conf's own folder
 
 ## Read-only
 
-The pane never writes: not obligations, not `urls/`. Mihkel ruled on 2026-10-14 that it stays
-read-only for good. Resolving or advancing an obligation happens in the file, by whoever owns it.
+The pane never writes into the home: not obligations, not `urls/`, not any tier. Mihkel ruled on
+2026-10-14 that it stays read-only for good, for every tab (kit #43). Resolving or advancing an
+obligation happens in the file, by whoever owns it. What the pane writes is its own: the release
+check's cache and the open tab per home, in the plugin's `$.store`.
 
 ## Install
 
@@ -210,7 +259,8 @@ does in a folder that is not a kit home, and the project-scope alternative:
 [Install scope](../README.md#install-scope-kit-35).
 
 Optional: `/plugin configure obligations-pane@memory-kit`
-to set the footer's agent name. `/obligations` opens the pane at any width.
+to set the footer's agent name. `/obligations` (on the Obligations tab) and `/memory-pane` (on
+the open tab) open the pane at any width.
 
 Or for one session only: `claude --plugin-dir ./memory-kit/adapters/claude-code/obligations-pane`.
 
