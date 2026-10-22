@@ -496,7 +496,8 @@ def lint_urls(mem, f):
 def scratchpad_shaped(path):
     """A commitments.yaml holding current/staging and no commitments key is a scratchpad a home
     named so before the tier existed (kit #30): a minor upgrade must not fail it. Unparseable (a
-    duplicate key included, kit #54) is not scratchpad-shaped; the commitments check reports it."""
+    duplicate key included, kit #54) is not scratchpad-shaped; the commitments check reports it.
+    The memory pane's twin is scratchpadShaped (see lint_tree, kit #53)."""
     try:
         data = strict_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError:
@@ -509,6 +510,10 @@ def lint_tree(mem, caps, f, ref_re, today, *, shipped_rules=False):
     if not mem.is_dir():
         f.fail(mem, "no such memory directory")
         return
+    # Every other top-level *.yaml is a scratchpad, whatever its name (memory/<name>.yaml). The
+    # rule's twin is scratchpadCandidates and scratchpadShaped in the memory pane,
+    # adapters/claude-code/obligations-pane/hooks/tiers.ts (kit #53): the two cannot share code,
+    # so a change to one is a change to both.
     for p in sorted(mem.glob("*.yaml")):
         name = p.stem
         if name == "rules":

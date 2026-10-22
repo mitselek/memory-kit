@@ -77,7 +77,10 @@ import {
   LESSON_FILTERS,
   lessonsView,
   nextView,
+  NO_SCRATCHPAD,
   rulesView,
+  scratchpadCandidates,
+  scratchpadShaped,
   secretFiles,
   secretsView,
   TABS,
@@ -191,8 +194,19 @@ async function readTier($: EngineInterface, view: ViewChoice, root: string, toda
       case 'O':
         return null
       case 'N': {
-        const text = await readIfThere($, `${root}/scratchpad.yaml`)
-        return text === undefined ? missing('scratchpad.yaml') : nextView(text)
+        // kit #53: the scratchpad tier is found as the lint finds it, not by a fixed name.
+        const noTier: TierView = { kind: 'missing', message: `${NO_SCRATCHPAD} (${root})` }
+        if (!(await $.fs.exists(root))) return noTier
+        const files: { name: string; text: string }[] = []
+        for (const e of await $.fs.list(root)) {
+          if (scratchpadCandidates([e.name]).length === 0) continue
+          // The lint follows a link to a file; a link is `other` in a listing, so ask where it leads.
+          const kind = e.kind === 'other' ? (await $.fs.stat(`${root}/${e.name}`)).kind : e.kind
+          if (kind !== 'file') continue
+          const text = await $.fs.read(`${root}/${e.name}`)
+          if (e.name !== 'commitments.yaml' || scratchpadShaped(text)) files.push({ name: e.name, text })
+        }
+        return files.length === 0 ? noTier : nextView(files)
       }
       case 'C':
         return commitmentsView(await readIfThere($, `${root}/commitments.yaml`))
