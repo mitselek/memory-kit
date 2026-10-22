@@ -13,6 +13,8 @@ import type { EngineInterface, Register } from 'claude-code'
 import {
   bellChange,
   bellLabel,
+  bellsKey,
+  bookmarksOf,
   combineRings,
   confContextPercent,
   confIdleMinutes,
@@ -32,14 +34,15 @@ import {
   ringText,
   textHash,
 } from './watch'
-import type { Doorbell } from './watch'
+import type { Bookmark, Doorbell } from './watch'
 import { foundAboveNote, normalizePath, resolveKitHome } from './kit-home'
 import type { KitHome } from './kit-home'
 
 const startCwd = atom({ plugin: 'watch', key: 'startCwd' } as const, '')
 /** Context marks already reported this session: once per mark, reloads included. */
 const reportedMarks = atom({ plugin: 'watch', key: 'reportedMarks' } as const, [] as number[])
-/** Each watched file's last-seen size, by expanded path: growth past it rings. */
+/** Each watched file's last-seen size, by expanded path: growth past it rings. A tail-style
+ *  file's is also kept in $.store, which a new session reads first (kit #51). */
 const bellSizes = atom({ plugin: 'watch', key: 'bellSizes' } as const, {} as Record<string, number>)
 /** Each watched file's last-seen text hash, by the same key: other text in its place rings (kit #52). */
 const bellHashes = atom({ plugin: 'watch', key: 'bellHashes' } as const, {} as Record<string, number>)
@@ -198,10 +201,37 @@ async function hashesOf($: EngineInterface): Promise<Record<string, number>> {
 }
 
 /**
+ * The kept bookmarks of the home's tail-style bells (kit #51), out of $.store, which every session
+ * reads: a new session, or one after /clear, rings only what came since. Undefined when the store
+ * cannot be read; those bells then keep the per-session bookmark alone, as before.
+ */
+async function keptOf($: EngineInterface, home: string): Promise<Record<string, Bookmark> | undefined> {
+  try {
+    return bookmarksOf(await $.store.get(bellsKey(home)))
+  } catch (err) {
+    logOnce($, `tail-style bookmarks last this session only: the store cannot be read (${String(err)})`)
+    return undefined
+  }
+}
+
+async function keep($: EngineInterface, home: string, kept: Record<string, Bookmark>): Promise<void> {
+  try {
+    await $.store.set(bellsKey(home), kept)
+  } catch (err) {
+    logOnce($, `tail-style bookmarks last this session only: the store cannot be written (${String(err)})`)
+  }
+}
+
+/**
  * The doorbells: every declared file that grew past its last-seen text, or whose text was
  * replaced by other non-empty text (kit #52), rings; all of one poll's rings as one prompt. Sizes
  * are character counts of what $.fs.read returns -- compared only with themselves. A missing file
  * counts 0, so delete-then-write rings and create-at-0 does not.
+ *
+ * $.state, the session's own, keeps every bookmark. A tail-style bell (inject: true) is never
+ * consumed, so its bookmark is also kept in $.store, per home, and read from there first (kit
+ * #51); one an older watch kept in $.state alone folds in at the first poll. An inbox-style bell
+ * keeps only the session's: an unconsumed inbox rings once in a new session.
  */
 async function doorbellCheck($: EngineInterface, home: string, conf: string): Promise<void> {
   const confPath = `${home}/memory-kit.conf`
@@ -214,8 +244,11 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
   const userHome = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? ''
   const sizes = await sizesOf($)
   const hashes = await hashesOf($)
+  const kept = await keptOf($, home)
   const rung: { bell: Doorbell; file: string; key: string; old: number; oldHash?: number; content: string; replaced: boolean }[] = []
+  const seen = new Set<string>()
   let changed = false
+  let keptChanged = false
   for (const bell of d.bells) {
     const path = expandHome(bell.path, home, userHome)
     if (path === undefined) {
@@ -224,16 +257,24 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
     }
     for (const file of await expand($, path)) {
       const key = fileKey(file)
+      // A file two entries name is one bell, the first entry's: one bookmark, one ring (kit #46).
+      if (seen.has(key)) continue
+      seen.add(key)
       const content = await readOrEmpty($, file)
-      const old = sizes[key] ?? 0
-      const oldHash = hashes[key]
+      const mark = bell.inject ? kept?.[key] : undefined
+      const old = mark !== undefined ? mark.size : (sizes[key] ?? 0)
+      const oldHash = mark !== undefined ? mark.hash : hashes[key]
       const change = bellChange(content, old, oldHash)
       if (change !== undefined) rung.push({ bell, file, key, old, oldHash, content, replaced: change === 'replaced' })
       const hash = textHash(content)
-      if (content.length !== old || hash !== oldHash) {
+      if (content.length !== sizes[key] || hash !== hashes[key]) {
         sizes[key] = content.length
         hashes[key] = hash
         changed = true
+      }
+      if (bell.inject && kept !== undefined && (content.length !== mark?.size || hash !== mark.hash)) {
+        kept[key] = { size: content.length, hash }
+        keptChanged = true
       }
     }
   }
@@ -241,19 +282,24 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
     await $.state.set({ plugin: 'watch', key: 'bellSizes' }, sizes)
     await $.state.set({ plugin: 'watch', key: 'bellHashes' }, hashes)
   }
+  if (kept !== undefined && keptChanged) await keep($, home, kept)
   if (rung.length === 0) return
   $.ui.log(`watch: ring (${rung.map(g => bellLabel(g.bell, g.file)).join(', ')})`, { to: 'debug' })
   ask($, combineRings(rung.map(g => ringText(g.bell, g.file, g.old, g.content, g.replaced))), async () => {
-    // Back to the bookmark before the ring, size and hash together, so the next poll rings again.
+    // Back to the bookmark before the ring, size and hash together, so the next poll rings again;
+    // a tail-style bell's kept one too, as it is read first.
     const nowSizes = await sizesOf($)
     const nowHashes = await hashesOf($)
+    const nowKept = rung.some(g => g.bell.inject) ? await keptOf($, home) : undefined
     for (const g of rung) {
       nowSizes[g.key] = g.old
       if (g.oldHash === undefined) delete nowHashes[g.key]
       else nowHashes[g.key] = g.oldHash
+      if (g.bell.inject && nowKept !== undefined) nowKept[g.key] = g.oldHash === undefined ? { size: g.old } : { size: g.old, hash: g.oldHash }
     }
     await $.state.set({ plugin: 'watch', key: 'bellSizes' }, nowSizes)
     await $.state.set({ plugin: 'watch', key: 'bellHashes' }, nowHashes)
+    if (nowKept !== undefined) await keep($, home, nowKept)
   })
 }
 

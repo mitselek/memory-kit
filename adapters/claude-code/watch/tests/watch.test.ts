@@ -3,6 +3,8 @@ import { describe, expect, test } from 'claude-code/testing'
 import {
   bellChange,
   bellLabel,
+  bellsKey,
+  bookmarksOf,
   combineRings,
   confContextPercent,
   confIdleMinutes,
@@ -178,6 +180,26 @@ describe('bellChange: growth, or a replacement (kit #52)', () => {
     expect(bellChange(OLD, 0, undefined)).toBe('grew')
     expect(bellChange('[{"m":2}]', OLD.length, undefined)).toBeUndefined()
     expect(bellChange(OLD, OLD.length, undefined)).toBeUndefined()
+  })
+})
+
+describe('kept bookmarks: tail-style bells in the store (kit #51)', () => {
+  test('bellsKey: one store key per home, however its path is spelled', () => {
+    expect(bellsKey('/home/u/kit')).toBe('bells:/home/u/kit')
+    expect(bellsKey('/home/u/./kit/')).toBe(bellsKey('/home/u/kit'))
+    expect(bellsKey('C:\\Users\\m\\Desk')).toBe(bellsKey('c:/users/m/desk'))
+    expect(bellsKey('/home/u/desk')).not.toBe(bellsKey('/home/u/kit'))
+  })
+
+  test('bookmarksOf: a size, with its hash when there is one; anything else is dropped', () => {
+    expect(bookmarksOf({ '/a': { size: 3, hash: 7 }, '/b': { size: 2 }, '/c': { hash: 1 }, '/d': 5, '/e': { size: '3' }, '/f': { size: 4, hash: 'x' } })).toEqual({
+      '/a': { size: 3, hash: 7 },
+      '/b': { size: 2 },
+      '/f': { size: 4 },
+    })
+    expect(bookmarksOf(undefined)).toEqual({})
+    expect(bookmarksOf([{ size: 1 }])).toEqual({})
+    expect(bookmarksOf('x')).toEqual({})
   })
 })
 

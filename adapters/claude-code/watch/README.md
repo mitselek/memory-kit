@@ -58,10 +58,14 @@ no new ring. All of one poll's rings go as **one**
 prompt. A ring the session's guards refuse rolls its bookmark back and rings again at a later
 poll.
 
-**Consuming is the home's own step.** An inbox-style file is consumed by reading it and then
-deleting or emptying it -- either resets the bookmark, so the next real write rings again. A
-tail-style file (`inject: true`) needs no consuming: the bookmark simply advances, and the file
-may grow forever. Say the habit in the entry's `instruction`, where the session will read it.
+**Consuming is the home's own step.** An inbox-style file (`inject: false`) is consumed by
+reading it and then deleting or emptying it -- either resets the bookmark, so the next real write
+rings again. Its bookmark is the session's own: a new session (a restart, a `/clear`) rings an
+unconsumed inbox once more. A tail-style file (`inject: true`) needs no consuming: its bookmark
+advances and outlives the session (kit #51). The watch keeps it in the plugin's own store, per
+home, never in the home, so a new session rings only the lines written since the last ring --
+those written while no session ran included -- and the file may grow for good. Say the habit in
+the entry's `instruction`, where the session will read it.
 
 **A consumer must take everything a ring announced, or retry by itself.** A ring needs new
 text: a file the consumer leaves as it was never changes again, so it never rings again, and what
@@ -131,7 +135,8 @@ watch_files:
 
 Each ring carries the new lines, `from=… id=… subject=…`. The session then collects and acks the
 mail with its own `recv`, after recording it. **Custody stays with the session**: the poller only
-looks, and the watch only rings. The spool is never consumed; the bookmark advances.
+looks, and the watch only rings. The spool is never consumed; the bookmark advances, from one
+session to the next too.
 
 **Ack only what you read, by id** (kit #39). `evr-mail recv` without `--peek` acks everything
 waiting on the hub, not what the peek showed: mail that arrived after the spool line is acked
@@ -249,8 +254,12 @@ problem in the declaration, and the sensor marks.
   billion) would not ring.
 - The watch does not watch directories, only files (a `*` path is expanded per poll, so a new
   matching file is picked up then).
-- Two sessions in one home each keep their own bookmarks: both ring. Information is per session;
-  consuming is not, so the home's rules say who consumes.
+- Two sessions in one home: an inbox-style file rings in both, each keeping its own bookmark. A
+  tail-style file's bookmark is shared (kit #51), so only the session that polls first after new
+  lines rings them; the other never hears of them. Information is per session; consuming is not,
+  so the home's rules say who consumes, and who acts on a tail-style ring.
+- A store the engine cannot read or write keeps tail-style bookmarks for the session only, as
+  before kit #51: a new session rings the whole file again. One debug line says so.
 
 ## Install
 

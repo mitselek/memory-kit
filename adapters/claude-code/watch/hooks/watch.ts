@@ -151,6 +151,28 @@ export function bellChange(content: string, oldSize: number, oldHash: number | u
   return textHash(content) === oldHash ? undefined : 'replaced'
 }
 
+/** A file's bookmark: its last-seen size and, when known, the hash of its text. */
+export type Bookmark = { size: number; hash?: number }
+
+/**
+ * The $.store key of a home's kept bookmarks (kit #51): a tail-style bell is never consumed, so
+ * its bookmark must outlive the session. One per home, however its path is spelled.
+ */
+export function bellsKey(home: string): string {
+  return `bells:${fileKey(home)}`
+}
+
+/** Kept bookmarks, validated out of the store: a size, with its hash when there is one. */
+export function bookmarksOf(stored: unknown): Record<string, Bookmark> {
+  if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return {}
+  const marks: Record<string, Bookmark> = {}
+  for (const [key, raw] of Object.entries(stored)) {
+    const { size, hash } = (typeof raw === 'object' && raw !== null ? raw : {}) as { size?: unknown; hash?: unknown }
+    if (typeof size === 'number') marks[key] = typeof hash === 'number' ? { size, hash } : { size }
+  }
+  return marks
+}
+
 /**
  * One ring. Information plus the home's own instruction; with `inject`, the grown tail's
  * non-blank lines ride along (meant for short, line-shaped files: the harness cuts long lines).
