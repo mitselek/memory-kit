@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 # Loading kit-update.py must leave nothing behind in tools/ (no __pycache__).
@@ -900,6 +900,60 @@ class ObligationsDueShowsWhoIsOwed(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertIn("- 2000-01-01  Pepys -> the board: answer the email", out.getvalue())
             self.assertIn("- 2000-01-02  Pepys: from before owed_to", out.getvalue())
+
+
+
+class ObligationsDueRefusesADuplicateKey(unittest.TestCase):
+    """Kit #55: obligations-due.py loads as the lint loads, so a key given twice is an error naming
+    the file, the key and both lines, worded as the lint words it; never the last copy, silently."""
+
+    def run_due(self, root):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                code = due.main(["obligations-due.py", str(root)])
+            except SystemExit as e:
+                code = e.code
+        return code, out.getvalue(), err.getvalue()
+
+    def test_a_row_with_check_twice_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {
+                "memory/obligations.yaml": (
+                    "obligations:\n"
+                    "  - obligation: answer the email\n    actor: Pepys\n    expires: 2000-01-01\n"
+                    "    check: read the thread\n    check: ask the board\n"),
+            })
+            code, out, err = self.run_due(root)
+            self.assertEqual(code, 2)
+            self.assertEqual(out, "")
+            path = root / "memory" / "obligations.yaml"
+            self.assertEqual(err, f"memory-kit: {path}: duplicate key 'check' on line 6 (first on line 5); YAML keeps only the last, silently\n")
+
+    def test_a_conf_with_a_key_twice_in_an_entry_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {
+                "memory-kit.conf": "memory_dir: memory\nwatch_files:\n  - label: a\n    label: b\n",
+                "memory/obligations.yaml": "obligations: []\n",
+            })
+            code, out, err = self.run_due(root)
+            self.assertEqual(code, 2)
+            self.assertIn(f"{root / 'memory-kit.conf'}: duplicate key 'label' on line 4 (first on line 3)", err)
+
+    def test_the_same_key_in_two_rows_is_not_a_duplicate(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            tree(root, {
+                "memory/obligations.yaml": (
+                    "obligations:\n"
+                    "  - obligation: one\n    actor: Pepys\n    expires: 2000-01-01\n"
+                    "  - obligation: two\n    actor: Pepys\n    expires: 2000-01-02\n"),
+            })
+            code, out, err = self.run_due(root)
+            self.assertEqual((code, err), (0, ""))
+            self.assertIn("## expired (2)", out)
 
 
 if __name__ == "__main__":
