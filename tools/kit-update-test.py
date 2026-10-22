@@ -43,16 +43,20 @@ class FakeHost:
     """subprocess.run for the tool: git and the lint answered from a table, every call recorded."""
 
     def __init__(self, tags, upgrade=UPGRADE, pull="ok", reset_rc=0, fetch="ok", status="", diff="",
-                 installed=(), claude_rc=None, claude_real=False):
+                 installed=(), claude_rc=None, claude_real=False, nested=None, repo=True):
         self.tags, self.upgrade, self.pull, self.reset_rc, self.fetch = tags, upgrade, pull, reset_rc, fetch
+        # Kit #49: the home's path from the top of its repo ("teams/apex"), None for a home at the
+        # top; and whether the home is in a git work tree at all.
+        self.nested, self.repo = nested, repo
         # `claude` (kit #37): the plugins `claude plugin list --json` shows as installed, an exit
         # code per subcommand ("list", "marketplace", "update <plugin>", default 0), and whether
         # a claude call runs for real (the fake `claude` a test put on PATH).
         self.installed, self.claude_rc, self.claude_real = list(installed), dict(claude_rc or {}), claude_real
-        # `git status --porcelain` as the home would answer it with every untracked file shown;
-        # the fake applies the flags and the pathspec the tool passes.
+        # `git status --porcelain` as the home would answer it with every untracked file shown, each
+        # path from the top of the repo as git gives it; the fake applies the flags and the pathspec
+        # the tool passes (a pathspec counts from the folder git runs in, as in git).
         self.status = status
-        self.diff = diff  # `git diff --name-only` between the start and the pulled commit
+        self.diff = diff  # `git diff --name-only` between the start and the pulled commit, from the top
         self.calls = []
 
     def __call__(self, argv, **kw):
@@ -66,12 +70,15 @@ class FakeHost:
         if argv[0] == "bash":
             return done()  # the lint gate passes
         cmd = argv[3] if argv[:2] == ["git", "-C"] else words[0]
+        if argv[:2] == ["git", "-C"] and not self.repo:
+            return done(rc=128, err="fatal: not a git repository (or any of the parent directories): .git")
+        top, here = self.where(argv[2]) if argv[:2] == ["git", "-C"] else ("", "")
         if cmd == "status":
             lines = self.status.splitlines()
             if "--untracked-files=no" in argv:
                 lines = [l for l in lines if not l.startswith("??")]
             if "--" in argv:
-                prefix = argv[argv.index("--") + 1].rstrip("/") + "/"
+                prefix = here + argv[argv.index("--") + 1].rstrip("/") + "/"
                 lines = [l for l in lines if l[3:].startswith(prefix)]
             return done(out="".join(l + "\n" for l in lines))
         if cmd == "fetch":
@@ -81,16 +88,29 @@ class FakeHost:
         if cmd == "show":
             return done(out=self.upgrade)
         if cmd == "rev-parse":
+            if "--show-toplevel" in argv:
+                return done(out=f"{top}\n{here}\n")
             return done(out="start123\n")
         if cmd == "subtree":
+            if here:  # git subtree's own refusal below the top (kit #49)
+                return done(rc=1, err="You need to run this command from the toplevel of the working tree.")
             if self.pull == "hang":
                 raise subprocess.TimeoutExpired(argv, kw.get("timeout"))
             return done(rc=0 if self.pull == "ok" else 1, err="" if self.pull == "ok" else "conflict")
         if cmd == "reset":
             return done(rc=self.reset_rc, err="" if self.reset_rc == 0 else "fatal: Unable to create '.git/index.lock': File exists.")
         if cmd == "diff":
-            return done(out=self.diff)
+            prefix, end = here + argv[argv.index("--") + 1].rstrip("/") + "/", "\0" if "-z" in argv else "\n"
+            return done(out="".join(l + end for l in self.diff.splitlines() if l.startswith(prefix)))
         raise AssertionError(f"unexpected command: {argv}")
+
+    def where(self, cwd):
+        """(the top of the repo, the folder's path from it with a trailing /), as git rev-parse
+        --show-toplevel --show-prefix answers them for a folder git runs in."""
+        p, parts = pathlib.Path(cwd), tuple(self.nested.split("/")) if self.nested else ()
+        if parts and p.parts[-len(parts):] == parts:
+            return str(p.parents[len(parts) - 1]), self.nested + "/"
+        return str(p), ""
 
     def claude(self, argv, kw, done):
         if self.claude_real:
@@ -135,11 +155,12 @@ def bin_dir(root, claude):
     return d
 
 
-def run_tool(host, current="0.1.0-alpha.13", channel="latest", claude=False, home_out=None):
+def run_tool(host, current="0.1.0-alpha.13", channel="latest", claude=False, home_out=None, home_rel="home"):
     """The tool over a fresh home, `host` standing for subprocess.run, PATH holding only a test
-    folder: with the fake `claude` (claude=True) or without one, never the real one."""
+    folder: with the fake `claude` (claude=True) or without one, never the real one. The home is
+    `home_rel` in a temporary folder."""
     with tempfile.TemporaryDirectory() as d:
-        home = pathlib.Path(d) / "home"
+        home = pathlib.Path(d) / home_rel
         (home / "memory-kit").mkdir(parents=True)
         (home / "memory-kit" / "VERSION").write_text(current + "\n", encoding="utf-8")
         (home / "memory-kit.conf").write_text(f"update: {channel}\n", encoding="utf-8")
@@ -409,6 +430,69 @@ class ToolsFollowThePointer(unittest.TestCase):
                 code = due.main(["obligations-due.py", str(root / "start")])
             self.assertEqual(code, 0)
             self.assertIn("from the desk", out.getvalue())
+
+
+class NestedHome(unittest.TestCase):
+    """Kit #49 (apex-research; framework-research in #24): a home that is a folder inside a larger
+    repo, teams/<name>/. git subtree runs only from the top of the work tree, so the tool ran it in
+    the home and git refused; the paths git gives count from the top, not from the home."""
+
+    TAGS = ["v0.1.0-alpha.13", "v0.1.0-alpha.14"]
+
+    def git_calls(self, host, cmd):
+        return [argv for argv, kw in host.calls if argv[:2] == ["git", "-C"] and argv[3] == cmd]
+
+    def test_the_pull_runs_from_the_top_with_the_prefix_counted_from_there(self):
+        host = FakeHost(tags=self.TAGS, nested="teams/apex")
+        seen = {}
+        code, out = run_tool(host, home_rel="ws/teams/apex", home_out=seen)
+        self.assertEqual(code, 0, out)
+        self.assertIn("updated 0.1.0-alpha.13 -> 0.1.0-alpha.14", out)
+        [pull] = self.git_calls(host, "subtree")
+        self.assertEqual(pull[2], str(seen["home"].parent.parent))
+        self.assertIn("--prefix=teams/apex/memory-kit", pull)
+
+    def test_a_home_at_the_top_keeps_the_plain_prefix(self):
+        host = FakeHost(tags=self.TAGS)
+        seen = {}
+        code, out = run_tool(host, home_out=seen)
+        self.assertEqual(code, 0, out)
+        [pull] = self.git_calls(host, "subtree")
+        self.assertEqual(pull[2], str(seen["home"]))
+        self.assertIn("--prefix=memory-kit", pull)
+
+    def test_an_untracked_file_under_the_homes_kit_refuses_and_one_elsewhere_does_not(self):
+        status = "?? teams/apex/memory-kit/lint/stray.py\n?? teams/apex/todo.txt\n?? teams/other/memory-kit/x.py"
+        code, out = run_tool(FakeHost(tags=self.TAGS, status=status, nested="teams/apex"), home_rel="ws/teams/apex")
+        self.assertEqual(code, 1)
+        self.assertIn("teams/apex/memory-kit/lint/stray.py", out)
+        self.assertNotIn("todo.txt", out)
+        self.assertNotIn("teams/other", out)
+
+    def test_a_tracked_change_elsewhere_in_the_repo_refuses_and_says_whose(self):
+        # git subtree refuses a tracked change anywhere in the work tree, so the tool does first.
+        code, out = run_tool(FakeHost(tags=self.TAGS, status=" M teams/other/memory/rules.yaml", nested="teams/apex"),
+                             home_rel="ws/teams/apex")
+        self.assertEqual(code, 1)
+        self.assertIn("the repo the home is in (", out)
+        self.assertIn("has uncommitted changes; commit or stash them first: teams/other/memory/rules.yaml", out)
+
+    def test_the_changed_plugins_are_found_below_the_top(self):
+        for nested in ("teams/apex", "teams/kõrts x"):  # git quotes such a path unless -z
+            with self.subTest(nested=nested):
+                diff = (f"{nested}/memory-kit/adapters/claude-code/watch/hooks/watch.ts\n"
+                        f"{nested}/memory-kit/adapters/claude-code/obligations-pane/README.md\n")
+                code, out = run_tool(FakeHost(tags=self.TAGS, diff=diff, nested=nested), home_rel=f"ws/{nested}")
+                self.assertEqual(code, 0, out)
+                self.assertIn("plugins changed: obligations-pane, watch", out)
+                self.assertIn("kit-update:   claude plugin update watch@memory-kit", out)
+
+    def test_a_home_outside_any_git_work_tree_is_said_exit_2(self):
+        host = FakeHost(tags=self.TAGS, repo=False)
+        code, out = run_tool(host)
+        self.assertEqual(code, 2, out)
+        self.assertIn("is not in a git work tree", out)
+        self.assertEqual(self.git_calls(host, "subtree"), [])
 
 
 class UntrackedFiles(unittest.TestCase):
