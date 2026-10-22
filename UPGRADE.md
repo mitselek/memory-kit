@@ -217,5 +217,9 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   squash merge of a pull request drops git-subtree's metadata, and the next `git subtree pull`
   refuses. (`--squash` on the subtree command itself is fine; it is the PR merge that must not
   squash.) Repair: re-add the kit at the pinned version and merge that with a merge commit.
+- A home with a post-merge hook that pushes publishes `tools/kit-update.py`'s merge commit within
+  seconds, before the lint gate runs: its message cannot be reworded afterwards (only by
+  force-push), so set `update_subject_prefix` in `memory-kit.conf` first if the home's hooks want
+  a story reference, and a lint failure's undo is local only. kit-update.py itself never pushes.
 - If an upgrade requires the assistant to re-read the home's whole memory to make sense of it,
   that is a finding worth reporting: the kit has leaked into the home's data.
