@@ -322,22 +322,19 @@ describe('a tail-style bookmark outlives the session (kit #51)', () => {
     expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://c`])
   })
 
-  test('two sessions in one home share it: what the other session rang does not ring here', async ($, on) => {
+  test('two sessions in one home each keep their own bookmark: both ring a new line', async ($, on) => {
     const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
     const clock = mock.clock(on, { now: NOW })
     await $.session.start(SESSION)
     await clock.advance(0)
-    // A line arrives, and the other session's poll rings it first, moving the shared bookmark.
+    // A line arrives, and the other session's ring of it enters first, moving the kept bookmark.
     world.files.set(LINKS, TWO)
     world.store.set(BELLS, { [LINKS]: { size: TWO.length, hash: textHash(TWO) } })
     await clock.advance(5_000)
-    expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`])
-    world.files.set(LINKS, `${TWO}https://c\n`)
-    await clock.advance(5_000)
-    expect(world.submitted[1]).toBe(`[links.txt] ${LINKS} grew.\nhttps://c`)
+    expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`, `[links.txt] ${LINKS} grew.\nhttps://b`])
   })
 
-  test('a refused ring rolls the kept bookmark back too, and rings again once the refusal lifts', async ($, on) => {
+  test('a refused ring leaves the kept bookmark behind, and rings again once the refusal lifts', async ($, on) => {
     const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
     world.refuse = 'another plugin holds prompts'
     const clock = mock.clock(on, { now: NOW })
@@ -349,6 +346,93 @@ describe('a tail-style bookmark outlives the session (kit #51)', () => {
     await $.session.start(SESSION)
     await clock.advance(0)
     expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`])
+  })
+
+  test('a ring still queued when its session ends rings again in the next session', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    // A busy closing turn: the ring of b queues behind it, and the session ends before it enters.
+    world.hold = true
+    world.files.set(LINKS, TWO)
+    await clock.advance(5_000)
+    expect(world.attempts).toHaveLength(2)
+    world.hold = false
+    newSession(world)
+    await $.session.start(SESSION)
+    await clock.advance(30_000)
+    expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`, `[links.txt] ${LINKS} grew.\nhttps://b`])
+  })
+
+  test('a queued ring that enters late moves the kept bookmark then: the next session does not ring it again', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    world.hold = true
+    world.files.set(LINKS, TWO)
+    await clock.advance(30_000)
+    expect(world.store.get(BELLS)).toEqual({ [LINKS]: { size: 'https://a\n'.length, hash: textHash('https://a\n') } })
+    world.release()
+    world.hold = false
+    await clock.advance(0)
+    expect(world.store.get(BELLS)).toEqual({ [LINKS]: { size: TWO.length, hash: textHash(TWO) } })
+    newSession(world)
+    await $.session.start(SESSION)
+    await clock.advance(30_000)
+    expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`, `[links.txt] ${LINKS} grew.\nhttps://b`])
+  })
+
+  test("a ring the last session left queued does not hold the new session's kept bookmark back", async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    world.hold = true
+    world.files.set(LINKS, TWO)
+    await clock.advance(5_000)
+    world.hold = false
+    newSession(world)
+    // The new session rings b again; the store takes no write until a later poll.
+    world.storeSetFails = true
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    world.storeSetFails = false
+    await clock.advance(5_000)
+    expect(world.store.get(BELLS)).toEqual({ [LINKS]: { size: TWO.length, hash: textHash(TWO) } })
+  })
+
+  test('a store that can be read but not written: the session keeps its own bookmark, each line rings once', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    // A full disk, a read-only configuration folder, or a store over 4 MiB: set is refused, get still answers.
+    world.storeSetFails = true
+    world.files.set(LINKS, TWO)
+    await clock.advance(30_000)
+    expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`, `[links.txt] ${LINKS} grew.\nhttps://b`])
+    expect(world.logs.filter(l => l.includes('store'))).toEqual([expect.stringContaining('cannot be written')])
+    // The store keeps the bookmark it last took: a new session rings again what came since.
+    newSession(world)
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    expect(world.submitted.slice(2)).toEqual([`[links.txt] ${LINKS} grew.\nhttps://b`])
+  })
+
+  test('a store that cannot be read for a while rings no line twice, and catches up when it can', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(5_000)
+    world.storeFails = true
+    world.files.set(LINKS, TWO)
+    await clock.advance(5_000)
+    world.storeFails = false
+    await clock.advance(30_000)
+    expect(world.submitted).toEqual([`[links.txt] ${LINKS} grew.\nhttps://a`, `[links.txt] ${LINKS} grew.\nhttps://b`])
+    expect(world.store.get(BELLS)).toEqual({ [LINKS]: { size: TWO.length, hash: textHash(TWO) } })
   })
 
   test('one file declared inbox-style, then tail-style: the first entry keeps it, one ring per new text', async ($, on) => {

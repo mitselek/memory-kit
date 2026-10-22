@@ -52,6 +52,9 @@ export type World = {
   afterStoreSet: ((key: string) => void) | undefined
   /** While set, every $.store call is refused, as a store the engine cannot read or write. */
   storeFails: boolean
+  /** While set, only $.store.set is refused and get still answers: a full disk, a read-only
+   *  configuration folder, a store over 4 MiB. */
+  storeSetFails: boolean
   /** The session's $.state, as the host holds it, by `plugin/key`: a new session starts with none of it (kit #51). */
   state: Map<string, { value: unknown; version: number }>
 }
@@ -121,13 +124,14 @@ export function worldOf(
     sessionId: 'sess-1',
     afterStoreSet: undefined,
     storeFails: false,
+    storeSetFails: false,
     state: new Map(),
   }
   // The store in memory, readable and writable by the test (another session's writes).
   const copy = (v: unknown) => (v === undefined ? undefined : (JSON.parse(JSON.stringify(v)) as unknown))
   on('store.get', ($, e) => (world.storeFails ? { deny: 'store unreadable' } : { value: copy(world.store.get(e.key)) }))
   on('store.set', ($, e) => {
-    if (world.storeFails) return { deny: 'store unwritable' }
+    if (world.storeFails || world.storeSetFails) return { deny: 'store unwritable' }
     world.store.set(e.key, copy(e.value))
     world.afterStoreSet?.(e.key)
     return { value: undefined }

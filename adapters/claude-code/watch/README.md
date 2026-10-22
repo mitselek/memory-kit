@@ -63,9 +63,10 @@ reading it and then deleting or emptying it -- either resets the bookmark, so th
 rings again. Its bookmark is the session's own: a new session (a restart, a `/clear`) rings an
 unconsumed inbox once more. A tail-style file (`inject: true`) needs no consuming: its bookmark
 advances and outlives the session (kit #51). The watch keeps it in the plugin's own store, per
-home, never in the home, so a new session rings only the lines written since the last ring --
-those written while no session ran included -- and the file may grow for good. Say the habit in
-the entry's `instruction`, where the session will read it.
+home, never in the home, and moves it only past what reached a turn: a new session rings only the
+lines no ring has brought in -- those written while no session ran, and those of a ring still
+queued when its session ended -- and the file may grow for good. Say the habit in the entry's
+`instruction`, where the session will read it.
 
 **A consumer must take everything a ring announced, or retry by itself.** A ring needs new
 text: a file the consumer leaves as it was never changes again, so it never rings again, and what
@@ -254,12 +255,16 @@ problem in the declaration, and the sensor marks.
   billion) would not ring.
 - The watch does not watch directories, only files (a `*` path is expanded per poll, so a new
   matching file is picked up then).
-- Two sessions in one home: an inbox-style file rings in both, each keeping its own bookmark. A
-  tail-style file's bookmark is shared (kit #51), so only the session that polls first after new
-  lines rings them; the other never hears of them. Information is per session; consuming is not,
-  so the home's rules say who consumes, and who acts on a tail-style ring.
-- A store the engine cannot read or write keeps tail-style bookmarks for the session only, as
-  before kit #51: a new session rings the whole file again. One debug line says so.
+- Two sessions in one home each keep their own bookmarks: both ring. Information is per session;
+  consuming is not, so the home's rules say who consumes. The kept bookmark of a tail-style file
+  (kit #51) serves only a session that has none of its own yet.
+- A store the engine cannot read or write never costs the running session a ring, nor rings one
+  twice: the session's own bookmark comes first. A new session finds no kept bookmark where the
+  store cannot be read, and rings the whole file again, as before kit #51; where it cannot be
+  written, the kept one stays where it was last written, and a new session rings again what came
+  since. One debug line says so.
+- A ring still queued when the watch reloads (an update), and then lost with its session, is not
+  rung again: the reload forgets which rings were still queued.
 
 ## Install
 
