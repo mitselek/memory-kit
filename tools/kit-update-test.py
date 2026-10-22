@@ -853,6 +853,27 @@ class Flags(unittest.TestCase):
         self.assertIn("one home at most", out)
         self.assertEqual(calls, [])
 
+    def test_help_after_a_real_home_runs_nothing(self):
+        # Kit #24, comment (hr2, alpha.15): `kit-update.py <home> --help` ran the update. The home
+        # here would update (latest, a newer tag), so any call at all would be the bug.
+        with tempfile.TemporaryDirectory() as d:
+            tree(pathlib.Path(d), {"memory-kit/VERSION": "0.1.0-alpha.13\n", "memory-kit.conf": "update: latest\n"})
+            for argv in ((d, "--help"), (d, "-h"), (d, "--dry-run", "--help"), (d, "--force", "-h")):
+                with self.subTest(argv=argv[1:]):
+                    code, out, calls = self.run_main(*argv)
+                    self.assertEqual(code, 0)
+                    self.assertTrue(out.startswith("Move a home's vendored memory-kit"), out)
+                    self.assertEqual(calls, [])
+
+    def test_an_unknown_argument_after_a_real_home_is_bad_usage_and_runs_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree(pathlib.Path(d), {"memory-kit/VERSION": "0.1.0-alpha.13\n", "memory-kit.conf": "update: latest\n"})
+            for extra in ("--force", "--dry-run=yes", "-", "--", "help"):
+                with self.subTest(extra=extra):
+                    code, out, calls = self.run_main(d, extra)
+                    self.assertEqual(code, 2, out)
+                    self.assertEqual(calls, [])
+
 
 class TheShippedUpgradeMd(unittest.TestCase):
     def test_the_next_hop_is_named_and_reads_as_no_data_step(self):
