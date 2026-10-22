@@ -192,15 +192,15 @@ def bin_dir(root, claude):
     return d
 
 
-def run_tool(host, current="0.1.0-alpha.13", channel="latest", claude=False, home_out=None, home_rel="home"):
+def run_tool(host, current="0.1.0-alpha.13", channel="latest", claude=False, home_out=None, home_rel="home", conf=""):
     """The tool over a fresh home, `host` standing for subprocess.run, PATH holding only a test
     folder: with the fake `claude` (claude=True) or without one, never the real one. The home is
-    `home_rel` in a temporary folder."""
+    `home_rel` in a temporary folder; `conf`, more lines for its memory-kit.conf."""
     with tempfile.TemporaryDirectory() as d:
         home = pathlib.Path(d) / home_rel
         (home / "memory-kit").mkdir(parents=True)
         (home / "memory-kit" / "VERSION").write_text(current + "\n", encoding="utf-8")
-        (home / "memory-kit.conf").write_text(f"update: {channel}\n", encoding="utf-8")
+        (home / "memory-kit.conf").write_text(f"update: {channel}\n{conf}", encoding="utf-8")
         path = bin_dir(d, claude)
         real, ku.subprocess.run = ku.subprocess.run, host
         out = io.StringIO()
@@ -789,6 +789,34 @@ class RunsPluginSteps(unittest.TestCase):
             f"{home}|plugin update watch@memory-kit",
         ])
         self.assertIn("ran: claude plugin update watch@memory-kit", out)
+
+
+class SubjectPrefix(unittest.TestCase):
+    """Kit #24 (semafor; the desk): a home whose commit hook wants a story reference first (#123,
+    a Jira key) refused the update's fixed subject. update_subject_prefix in the home's
+    memory-kit.conf goes before it, with one space."""
+
+    TAGS = ["v0.1.0-alpha.13", "v0.1.0-alpha.14"]
+    SUBJECT = "chore: memory-kit 0.1.0-alpha.13 -> 0.1.0-alpha.14 (kit-update, latest)"
+
+    def subject(self, conf):
+        host = FakeHost(tags=self.TAGS)
+        code, out = run_tool(host, conf=conf)
+        self.assertEqual(code, 0, out)
+        [pull] = host.git_calls("subtree")
+        return pull[pull.index("-m") + 1]
+
+    def test_no_key_keeps_the_subject(self):
+        self.assertEqual(self.subject(""), self.SUBJECT)
+        self.assertEqual(self.subject("update_subject_prefix:\n"), self.SUBJECT)
+
+    def test_the_prefix_goes_first_with_one_space(self):
+        for conf, prefix in (('update_subject_prefix: "#123"\n', "#123"),
+                             ("update_subject_prefix: 'ABC-12:'  # the story for kit upkeep\n", "ABC-12:"),
+                             ('update_subject_prefix: "[KIT-7]"\n', "[KIT-7]"),
+                             ('update_subject_prefix: "#123 "\n', "#123")):
+            with self.subTest(conf=conf):
+                self.assertEqual(self.subject(conf), f"{prefix} {self.SUBJECT}")
 
 
 class Flags(unittest.TestCase):

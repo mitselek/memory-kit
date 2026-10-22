@@ -11,6 +11,12 @@ The home's memory-kit.conf names the channel:
     update: latest      # the newest release tag
     upstream: mitselek/memory-kit    # optional; a Codeberg owner/repo or a git URL
 
+The update's commit subject is "chore: memory-kit <from> -> <to> (kit-update, <channel>)". A home
+whose commit hook wants a story reference first puts one before it, one space between (quote it:
+a bare # starts a comment; kit #24):
+
+    update_subject_prefix: "#123"
+
 A folder that is not the home may hold a pointer conf, `kit_home: <path>` (absolute, or relative
 to that conf): the tool then runs on the home it names, one hop (lint/kit_home.py, kit #18).
 
@@ -379,6 +385,11 @@ def main(argv):
 
     start = git(top, "rev-parse", "HEAD").stdout.strip()
     msg = f"chore: memory-kit {current} -> {target[1:]} (kit-update, {channel})"
+    # Kit #24: a home whose commit hook wants a story reference first (#123, a Jira key) names it
+    # here. Read as lint/kit_home.py reads a key, so a quoted "#123" is a value, not a comment.
+    prefix = kit_home.conf_value(conf, "update_subject_prefix").strip()
+    if prefix:
+        msg = f"{prefix} {msg}"
     pull = git(top, "subtree", "pull", f"--prefix={kit}", url, target, "--squash",
                "-m", msg, check=False, timeout=NETWORK_TIMEOUT)
     if pull.returncode != 0:
