@@ -37,6 +37,11 @@ summary cut by an unquoted ` #` (YAML reads the rest of the line as a comment, s
 index agrees with the cut value; only the raw front matter shows it), an obligation's `owed_to`
 that is the actor, "us" or "we" (kit #29: owed to no one else, it is a to-do).
 
+**A duplicate key is a failure** (kit #54), at any depth, in every tier file and lesson front
+matter: two top-level `keys:` blocks, or one row with `check:` twice. Plain YAML keeps only the
+last one, silently, while the memory pane refuses the file; so one file read as two. The FAIL
+line names the key and both lines: `duplicate key 'keys' on line 31 (first on line 7)`.
+
 Notes never fail a gate. They are the honest gaps the kit wants counted rather than hidden:
 
 | note | why it is not a failure |

@@ -54,11 +54,58 @@ class Findings:
         return [i for i in self.items if i[0] == "fail"]
 
 
+class DuplicateKey(yaml.YAMLError):
+    """One mapping holds a key twice (kit #54). PyYAML keeps the last silently and the memory
+    pane refuses the file, so one file read as two. Lines are 1-based, in the text loaded."""
+
+    def __init__(self, key, line, first):
+        super().__init__(f"duplicate key {key!r} on line {line} (first on line {first})")
+        self.key, self.line, self.first = key, line, first
+
+    def shifted(self, by):
+        """The same finding with its lines moved, for text cut out of a longer file."""
+        return DuplicateKey(self.key, self.line + by, self.first + by)
+
+    def message(self):
+        return f"{self}; YAML keeps only the last, silently"
+
+
+class StrictLoader(yaml.SafeLoader):
+    """safe_load that refuses a duplicate key at every depth instead of keeping the last: a lost
+    row field is silent data loss as much as a lost top-level block (kit #54)."""
+
+    def construct_mapping(self, node, deep=False):
+        if isinstance(node, yaml.MappingNode):
+            seen = {}
+            for key_node, _ in node.value:
+                # A merge key (<<) brings in keys the mapping's own may override, as YAML intends.
+                if key_node.tag == "tag:yaml.org,2002:merge":
+                    continue
+                key = self.construct_object(key_node, deep=deep)
+                try:
+                    hash(key)
+                except TypeError:
+                    continue  # an unhashable key: the base class refuses it with its own error
+                line = key_node.start_mark.line + 1
+                if key in seen:
+                    raise DuplicateKey(key, line, seen[key])
+                seen[key] = line
+        return super().construct_mapping(node, deep=deep)
+
+
+def strict_load(text):
+    return yaml.load(text, Loader=StrictLoader)
+
+
 def load(path, f):
     """Parse a YAML file. A parse error is always a failure: an unreadable tier is not a
-    tier, and treating it as empty would hide everything in it."""
+    tier, and treating it as empty would hide everything in it. So is a duplicate key, which
+    plain PyYAML would read as the last one alone (kit #54)."""
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = strict_load(path.read_text(encoding="utf-8"))
+    except DuplicateKey as e:
+        f.fail(path, e.message())
+        return None
     except yaml.YAMLError as e:
         f.fail(path, f"unparseable YAML: {str(e).splitlines()[0]}")
         return None
@@ -327,7 +374,8 @@ LESSON_FRONT_KEYS = ("summary", "learned", "ref", "enforcement", "trigger")
 
 
 def lesson_front_matter(path):
-    """The index fields a lesson carries in its YAML front matter, or None if it has none."""
+    """The index fields a lesson carries in its YAML front matter, or None if it has none.
+    Raises DuplicateKey, its lines counted in the whole file, when a key repeats (kit #54)."""
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---\n"):
         return None
@@ -335,7 +383,9 @@ def lesson_front_matter(path):
     if not sep:
         return None
     try:
-        meta = yaml.safe_load(head)
+        meta = strict_load(head)
+    except DuplicateKey as e:
+        raise e.shifted(1) from None  # the front matter starts on the file's line 2
     except yaml.YAMLError:
         return None
     return meta if isinstance(meta, dict) else None
@@ -362,7 +412,11 @@ def summary_cut_by_hash(path):
 def lesson_drift(body, row, f):
     # The index is generated from the front matter; any difference means it was hand-edited
     # or not regenerated -- the rot the generated index exists to prevent.
-    meta = lesson_front_matter(body)
+    try:
+        meta = lesson_front_matter(body)
+    except DuplicateKey as e:
+        f.fail(body, f"front matter: {e.message()}")
+        return
     if meta is None:
         f.fail(body, "no front matter; the index fields live there (tools/lesson-index.py)")
         return
@@ -441,10 +495,10 @@ def lint_urls(mem, f):
 
 def scratchpad_shaped(path):
     """A commitments.yaml holding current/staging and no commitments key is a scratchpad a home
-    named so before the tier existed (kit #30): a minor upgrade must not fail it. Unparseable is
-    not scratchpad-shaped; the commitments check reports it."""
+    named so before the tier existed (kit #30): a minor upgrade must not fail it. Unparseable (a
+    duplicate key included, kit #54) is not scratchpad-shaped; the commitments check reports it."""
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = strict_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError:
         return False
     return (isinstance(data, dict) and "commitments" not in data
