@@ -7,6 +7,8 @@ declare module 'claude-code' {
       startCwd: string
       /** Each watched file's last-seen size, by expanded path: growth past it rings the doorbell. */
       bellSizes: Record<string, number>
+      /** Each watched file's last-seen text hash, by the same key: other text in its place rings (kit #52). */
+      bellHashes: Record<string, number>
       /** Context marks already reported this session: once per mark, reloads included. */
       reportedMarks: number[]
     }

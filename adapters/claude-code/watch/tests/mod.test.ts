@@ -65,7 +65,7 @@ describe('doorbells: ring on growth, never touch the file', () => {
     expect(world.submitted).toHaveLength(2)
   })
 
-  test('created at 0 bytes is not growth; shrinking is not growth; growing past the shrunk size rings', async ($, on) => {
+  test('created at 0 bytes is not growth; cut shorter is other text, a replacement; growing past it rings', async ($, on) => {
     const world = worldOf(on, { 'memory-kit.conf': CONF })
     const clock = mock.clock(on, { now: NOW })
     await $.session.start(SESSION)
@@ -78,10 +78,67 @@ describe('doorbells: ring on growth, never touch the file', () => {
     expect(world.submitted).toHaveLength(1)
     world.files.set(INBOX, '0123')
     await clock.advance(5_000)
-    expect(world.submitted).toHaveLength(1)
+    expect(world.submitted).toHaveLength(2)
+    expect(world.submitted[1]).toBe(`[hub mail] ${INBOX} was replaced. consume the inbox or new messages won't land`)
     world.files.set(INBOX, '012345')
     await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(3)
+    expect(world.submitted[2]).toBe(`[hub mail] ${INBOX} grew. consume the inbox or new messages won't land`)
+  })
+
+  test('consumed and refilled between two polls by a shorter message still rings (kit #52)', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [INBOX]: '[{"from":"mvox","text":"a long message"}]' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    expect(world.submitted).toHaveLength(1)
+    // The home deletes the inbox and the courier writes the next mail before the watch polls.
+    world.files.set(INBOX, '[{"from":"po","text":"hi"}]')
+    await clock.advance(5_000)
+    expect(world.submitted).toEqual([
+      `[hub mail] ${INBOX} grew. consume the inbox or new messages won't land`,
+      `[hub mail] ${INBOX} was replaced. consume the inbox or new messages won't land`,
+    ])
+    // Nothing new after it: no second ring for the same mail.
+    await clock.advance(60_000)
     expect(world.submitted).toHaveLength(2)
+  })
+
+  test('refilled by a message of the same size rings; the same text written again does not', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [INBOX]: '[{"m":1}]' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    world.files.set(INBOX, '[{"m":2}]')
+    await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(2)
+    world.files.set(INBOX, '[{"m":2}]')
+    await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(2)
+  })
+
+  test('inject: a replaced file rings its whole new text, not a tail past the old size', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [LINKS]: 'https://a\nhttps://b\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    world.files.set(LINKS, 'https://c\nhttps://d\nhttps://e\n')
+    await clock.advance(5_000)
+    expect(world.submitted[1]).toBe(`[links.txt] ${LINKS} was replaced.\nhttps://c\nhttps://d\nhttps://e`)
+  })
+
+  test('a refused replacement rolls back and rings again once the refusal lifts', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': CONF, [INBOX]: '[{"from":"mvox","text":"a long message"}]' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    world.refuse = 'another plugin holds prompts'
+    world.files.set(INBOX, '[{"m":2}]')
+    await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(1)
+    world.refuse = undefined
+    await clock.advance(5_000)
+    expect(world.submitted[1]).toBe(`[hub mail] ${INBOX} was replaced. consume the inbox or new messages won't land`)
   })
 
   test('inject: the ring carries the grown tail, and the next ring only what is new', async ($, on) => {

@@ -11,6 +11,7 @@ import { atom, read } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import {
+  bellChange,
   bellLabel,
   combineRings,
   confContextPercent,
@@ -29,6 +30,7 @@ import {
   pathSegments,
   readDoorbells,
   ringText,
+  textHash,
 } from './watch'
 import type { Doorbell } from './watch'
 import { foundAboveNote, normalizePath, resolveKitHome } from './kit-home'
@@ -39,6 +41,8 @@ const startCwd = atom({ plugin: 'watch', key: 'startCwd' } as const, '')
 const reportedMarks = atom({ plugin: 'watch', key: 'reportedMarks' } as const, [] as number[])
 /** Each watched file's last-seen size, by expanded path: growth past it rings. */
 const bellSizes = atom({ plugin: 'watch', key: 'bellSizes' } as const, {} as Record<string, number>)
+/** Each watched file's last-seen text hash, by the same key: other text in its place rings (kit #52). */
+const bellHashes = atom({ plugin: 'watch', key: 'bellHashes' } as const, {} as Record<string, number>)
 
 type Settings = { home: string; pollMs: number }
 
@@ -184,10 +188,20 @@ async function sizesOf($: EngineInterface): Promise<Record<string, number>> {
   return sizes
 }
 
+/** The last-seen text hashes, validated out of $.state; a file with none is judged by size alone. */
+async function hashesOf($: EngineInterface): Promise<Record<string, number>> {
+  const raw = await read($, bellHashes)
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  const hashes: Record<string, number> = {}
+  for (const [key, hash] of Object.entries(raw)) if (typeof hash === 'number') hashes[key] = hash
+  return hashes
+}
+
 /**
- * The doorbells: every declared file that grew since its last-seen size rings, all of one poll's
- * rings as one prompt. Sizes are character counts of what $.fs.read returns -- compared only with
- * themselves. A missing file counts 0, so delete-then-write rings and create-at-0 does not.
+ * The doorbells: every declared file that grew past its last-seen text, or whose text was
+ * replaced by other non-empty text (kit #52), rings; all of one poll's rings as one prompt. Sizes
+ * are character counts of what $.fs.read returns -- compared only with themselves. A missing file
+ * counts 0, so delete-then-write rings and create-at-0 does not.
  */
 async function doorbellCheck($: EngineInterface, home: string, conf: string): Promise<void> {
   const confPath = `${home}/memory-kit.conf`
@@ -199,7 +213,8 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
 
   const userHome = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? ''
   const sizes = await sizesOf($)
-  const grown: { bell: Doorbell; file: string; key: string; old: number; content: string }[] = []
+  const hashes = await hashesOf($)
+  const rung: { bell: Doorbell; file: string; key: string; old: number; oldHash?: number; content: string; replaced: boolean }[] = []
   let changed = false
   for (const bell of d.bells) {
     const path = expandHome(bell.path, home, userHome)
@@ -211,20 +226,34 @@ async function doorbellCheck($: EngineInterface, home: string, conf: string): Pr
       const key = fileKey(file)
       const content = await readOrEmpty($, file)
       const old = sizes[key] ?? 0
-      if (content.length > old) grown.push({ bell, file, key, old, content })
-      if (content.length !== old) {
+      const oldHash = hashes[key]
+      const change = bellChange(content, old, oldHash)
+      if (change !== undefined) rung.push({ bell, file, key, old, oldHash, content, replaced: change === 'replaced' })
+      const hash = textHash(content)
+      if (content.length !== old || hash !== oldHash) {
         sizes[key] = content.length
+        hashes[key] = hash
         changed = true
       }
     }
   }
-  if (changed) await $.state.set({ plugin: 'watch', key: 'bellSizes' }, sizes)
-  if (grown.length === 0) return
-  $.ui.log(`watch: ring (${grown.map(g => bellLabel(g.bell, g.file)).join(', ')})`, { to: 'debug' })
-  ask($, combineRings(grown.map(g => ringText(g.bell, g.file, g.old, g.content))), async () => {
-    const now = await sizesOf($)
-    for (const g of grown) now[g.key] = Math.min(now[g.key] ?? g.old, g.old)
-    await $.state.set({ plugin: 'watch', key: 'bellSizes' }, now)
+  if (changed) {
+    await $.state.set({ plugin: 'watch', key: 'bellSizes' }, sizes)
+    await $.state.set({ plugin: 'watch', key: 'bellHashes' }, hashes)
+  }
+  if (rung.length === 0) return
+  $.ui.log(`watch: ring (${rung.map(g => bellLabel(g.bell, g.file)).join(', ')})`, { to: 'debug' })
+  ask($, combineRings(rung.map(g => ringText(g.bell, g.file, g.old, g.content, g.replaced))), async () => {
+    // Back to the bookmark before the ring, size and hash together, so the next poll rings again.
+    const nowSizes = await sizesOf($)
+    const nowHashes = await hashesOf($)
+    for (const g of rung) {
+      nowSizes[g.key] = g.old
+      if (g.oldHash === undefined) delete nowHashes[g.key]
+      else nowHashes[g.key] = g.oldHash
+    }
+    await $.state.set({ plugin: 'watch', key: 'bellSizes' }, nowSizes)
+    await $.state.set({ plugin: 'watch', key: 'bellHashes' }, nowHashes)
   })
 }
 
