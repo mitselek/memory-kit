@@ -21,7 +21,9 @@ What it does, and what it never does:
   - git subtree pull --squash of the target tag, then the lint gate over the home. A home that is
     a folder inside a larger repo (teams/<name>/) is pulled from the repo's top, with the prefix
     <name's path from the top>/memory-kit (#49);
-  - on a lint failure, undoes the pull (back to the commit it started from) and says why;
+  - on a failed pull or lint, undoes the pull (back to the commit it started from) and says why,
+    never by reset --hard (#24): git merge --abort for a merge the pull left in progress, git
+    reset --keep for the pull's commit (it refuses rather than overwrite a local change);
   - commits locally and NEVER pushes: each home's own push rule applies;
   - when the pull changed the plugins (memory-kit/adapters/) and `claude` is on PATH, RUNS
     `claude plugin marketplace update memory-kit`, then `claude plugin update <p>@memory-kit`
@@ -129,18 +131,43 @@ def data_steps_ok(upgrade_md, path):
     return None
 
 
+def head(top):
+    return git(top, "rev-parse", "HEAD", check=False).stdout.strip()
+
+
+def merging(top):
+    return git(top, "rev-parse", "-q", "--verify", "MERGE_HEAD", check=False).returncode == 0
+
+
 def undo(top, start, why):
-    """Back to the commit the update started from, in the repo whose top is `top`. The exit code: 1
-    when the reset worked, or EXIT_ROLLBACK_FAILED when it did not, said plainly with how to recover
-    (ultrareview alpha.13, 4)."""
-    r = git(top, "reset", "--hard", start, check=False)
-    if r.returncode == 0:
-        say(f"{why}; the pull is undone (back to {start[:12]})")
+    """Back to the commit the update started from, in the repo whose top is `top`, and never by
+    reset --hard (kit #24): a home's settings may deny it, and a tool must not route around a deny.
+    The tree was clean when the update began, so what is undone is the pull's own:
+      - a merge the pull left in progress (a conflict, or a commit hook refusing the subject) is
+        aborted: git merge --abort;
+      - a commit the pull made goes with git reset --keep, which refuses rather than overwrite a
+        local change, and leaves untracked files alone.
+    Then the end is checked: HEAD at the start, no merge in progress, no tracked change. The exit
+    code: 1 when it holds, or EXIT_ROLLBACK_FAILED when it does not, said plainly with how to
+    recover (ultrareview alpha.13, 4)."""
+    ran = []
+    if merging(top):
+        ran.append(git(top, "merge", "--abort", check=False))
+    if not merging(top) and head(top) != start:
+        ran.append(git(top, "reset", "--keep", start, check=False))
+    failed = [r for r in ran if r.returncode != 0]
+    left = paths_of(git(top, "status", "--porcelain", "--untracked-files=no", check=False).stdout)
+    if not failed and head(top) == start and not merging(top) and not left:
+        say(f"{why}; the pull is undone (back to {start[:12]})" if ran else f"{why}; nothing changed (still at {start[:12]})")
         return 1
     say(f"{why}, AND the undo failed: the tree may be partly pulled.")
-    say(f"  git reset --hard {start} said: {r.stderr.strip()[:300]}")
+    for r in failed:
+        say(f"  git {' '.join(r.args[3:])} said: {r.stderr.strip()[:300]}")
+    if left:
+        say(f"  still changed: {named(left)}")
     say(f"  To recover: remove a stale .git/index.lock if no git is running, then run")
-    say(f"  `git -C {top} reset --hard {start}` and check `git -C {top} status` is clean.")
+    say(f"  `git -C {top} merge --abort` (if a merge is in progress) and `git -C {top} reset --keep {start}`,")
+    say(f"  and check `git -C {top} status`.")
     return EXIT_ROLLBACK_FAILED
 
 
@@ -320,7 +347,8 @@ def main(argv):
     top, below = (where.stdout.splitlines() + ["", ""])[:2]  # below: the home from the top, "" or "teams/x/"
     kit = below + "memory-kit"
     # Tracked changes anywhere refuse; untracked files only under memory-kit/, where the pull writes
-    # and the lint reads. Elsewhere they are safe: the undo (reset --hard) leaves them alone (#25).
+    # and the lint reads. Elsewhere they are safe: the undo (merge --abort, reset --keep) leaves them
+    # alone (#25). So whatever the undo takes back is the pull's own (#24).
     tracked = paths_of(git(top, "status", "--porcelain", "--untracked-files=no").stdout)
     if tracked:
         repo = "the home" if not below else f"the repo the home is in ({top})"

@@ -42,9 +42,17 @@ UPGRADE = """## Per version
 class FakeHost:
     """subprocess.run for the tool: git and the lint answered from a table, every call recorded."""
 
-    def __init__(self, tags, upgrade=UPGRADE, pull="ok", reset_rc=0, fetch="ok", status="", diff="",
-                 installed=(), claude_rc=None, claude_real=False, nested=None, repo=True):
-        self.tags, self.upgrade, self.pull, self.reset_rc, self.fetch = tags, upgrade, pull, reset_rc, fetch
+    def __init__(self, tags, upgrade=UPGRADE, pull="ok", fetch="ok", status="", diff="", lint="pass",
+                 abort_rc=0, keep_rc=0, installed=(), claude_rc=None, claude_real=False, nested=None, repo=True):
+        self.tags, self.upgrade, self.pull, self.fetch = tags, upgrade, pull, fetch
+        # The pull: "ok" commits; "conflict" and "hook" (a commit hook refusing the subject) leave a
+        # merge in progress with its changes staged, as git does; "refused" fails before merging;
+        # "hang" times out with nothing changed, "hang-dirty" with a staged change left behind.
+        # The lint gate: "pass", or "fail" on the pulled tree only. The undo's two steps fail when
+        # their rc is not 0 (kit #24). The repo's state: HEAD, a merge in progress, the pull's
+        # own changes.
+        self.lint, self.abort_rc, self.keep_rc = lint, abort_rc, keep_rc
+        self.head, self.merging, self.left = "start123", False, []
         # Kit #49: the home's path from the top of its repo ("teams/apex"), None for a home at the
         # top; and whether the home is in a git work tree at all.
         self.nested, self.repo = nested, repo
@@ -67,14 +75,16 @@ class FakeHost:
             return self.claude(argv, kw, done)
         if "ls-remote" in argv:
             return done(out="".join(f"abc\trefs/tags/{t}\n" for t in self.tags))
-        if argv[0] == "bash":
-            return done()  # the lint gate passes
+        if argv[0] == "bash":  # the lint gate
+            if self.lint == "fail" and self.head != "start123":
+                return done(rc=1, out="  FAIL rules.yaml: a check the new version added\n")
+            return done()
         cmd = argv[3] if argv[:2] == ["git", "-C"] else words[0]
         if argv[:2] == ["git", "-C"] and not self.repo:
             return done(rc=128, err="fatal: not a git repository (or any of the parent directories): .git")
         top, here = self.where(argv[2]) if argv[:2] == ["git", "-C"] else ("", "")
         if cmd == "status":
-            lines = self.status.splitlines()
+            lines = self.status.splitlines() + self.left
             if "--untracked-files=no" in argv:
                 lines = [l for l in lines if not l.startswith("??")]
             if "--" in argv:
@@ -90,19 +100,46 @@ class FakeHost:
         if cmd == "rev-parse":
             if "--show-toplevel" in argv:
                 return done(out=f"{top}\n{here}\n")
-            return done(out="start123\n")
+            if "MERGE_HEAD" in argv:
+                return done(out="merge789\n") if self.merging else done(rc=1)
+            return done(out=self.head + "\n")
         if cmd == "subtree":
             if here:  # git subtree's own refusal below the top (kit #49)
                 return done(rc=1, err="You need to run this command from the toplevel of the working tree.")
-            if self.pull == "hang":
+            kit = [a for a in argv if a.startswith("--prefix=")][0][len("--prefix="):]
+            if self.pull in ("hang", "hang-dirty"):
+                self.left = [f"M  {kit}/VERSION"] if self.pull == "hang-dirty" else []
                 raise subprocess.TimeoutExpired(argv, kw.get("timeout"))
-            return done(rc=0 if self.pull == "ok" else 1, err="" if self.pull == "ok" else "conflict")
+            if self.pull == "ok":
+                self.head = "pulled456"
+                return done()
+            if self.pull == "refused":
+                return done(rc=1, err="fatal: working tree has modifications.  Cannot add.")
+            self.merging, self.left = True, [f"UU {kit}/VERSION", f"A  {kit}/adapters/claude-code/watch/x.ts"]
+            return done(rc=1, err="CONFLICT (content): Merge conflict in VERSION" if self.pull == "conflict"
+                        else "need a story ref\nNot committing merge; use 'git commit' to complete the merge.")
+        if cmd == "merge" and "--abort" in argv:
+            if not self.merging:
+                return done(rc=128, err="fatal: There is no merge to abort (MERGE_HEAD missing).")
+            if self.abort_rc:
+                return done(rc=self.abort_rc, err="fatal: Unable to create '.git/index.lock': File exists.")
+            self.merging, self.left = False, []
+            return done()
         if cmd == "reset":
-            return done(rc=self.reset_rc, err="" if self.reset_rc == 0 else "fatal: Unable to create '.git/index.lock': File exists.")
+            mode, to = argv[4], argv[5]
+            if mode == "--keep" and self.merging:
+                return done(rc=128, err="fatal: Cannot do a keep reset in the middle of a merge.")
+            if mode == "--keep" and self.keep_rc:
+                return done(rc=self.keep_rc, err="error: Entry 'memory-kit/VERSION' not uptodate. Cannot merge.")
+            self.head, self.merging, self.left = to, False, []  # --hard too, as git: the tests forbid it
+            return done()
         if cmd == "diff":
             prefix, end = here + argv[argv.index("--") + 1].rstrip("/") + "/", "\0" if "-z" in argv else "\n"
             return done(out="".join(l + end for l in self.diff.splitlines() if l.startswith(prefix)))
         raise AssertionError(f"unexpected command: {argv}")
+
+    def git_calls(self, cmd):
+        return [argv[3:] for argv, kw in self.calls if argv[:2] == ["git", "-C"] and argv[3] == cmd]
 
     def where(self, cwd):
         """(the top of the repo, the folder's path from it with a trailing /), as git rev-parse
@@ -201,19 +238,23 @@ class Finding1CurrentVersionAlwaysOnThePath(unittest.TestCase):
 
 
 class Finding4ARollbackThatFailsIsSaidPlainly(unittest.TestCase):
-    def test_a_failed_pull_whose_reset_works_is_undone_exit_1(self):
-        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="fail"))
+    def test_a_failed_pull_whose_undo_works_is_undone_exit_1(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="conflict"))
         self.assertEqual(code, 1)
-        self.assertIn("subtree pull failed: conflict; the pull is undone (back to start123)", out)
+        self.assertIn("subtree pull failed: CONFLICT (content): Merge conflict in VERSION; the pull is undone (back to start123)", out)
 
-    def test_a_failed_pull_whose_reset_fails_says_so_and_exits_3(self):
-        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="fail", reset_rc=128))
+    def test_a_failed_pull_whose_undo_fails_says_so_and_exits_3(self):
+        code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="conflict", abort_rc=128))
         self.assertEqual(code, ku.EXIT_ROLLBACK_FAILED)
         self.assertEqual(ku.EXIT_ROLLBACK_FAILED, 3)
-        self.assertNotIn("undone:", out)
+        self.assertNotIn("undone", out)
         self.assertIn("may be partly pulled", out)
-        self.assertIn("git reset --hard start123", out)
+        self.assertIn("git merge --abort said: fatal: Unable to create '.git/index.lock'", out)
+        self.assertIn("still changed: memory-kit/VERSION, memory-kit/adapters/claude-code/watch/x.ts", out)
+        self.assertIn("merge --abort` (if a merge is in progress)", out)
+        self.assertIn("reset --keep start123`", out)
         self.assertIn("index.lock", out)
+        self.assertNotIn("--hard", out)
 
 
 class Finding5NetworkCallsAreBounded(unittest.TestCase):
@@ -225,12 +266,12 @@ class Finding5NetworkCallsAreBounded(unittest.TestCase):
         self.assertEqual(host.timeout_of("subtree"), [ku.NETWORK_TIMEOUT])
         self.assertEqual(ku.NETWORK_TIMEOUT, 300)
 
-    def test_a_pull_that_times_out_is_a_failure_and_rolled_back(self):
+    def test_a_pull_that_times_out_is_a_failure_and_its_state_checked(self):
         host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], pull="hang")
         code, out = run_tool(host)
         self.assertEqual(code, 1)
-        self.assertIn("timed out after 300 s", out)
-        self.assertEqual(len(host.timeout_of("reset")), 1)
+        self.assertIn("timed out after 300 s; nothing changed (still at start123)", out)
+        self.assertEqual(host.git_calls("rev-parse")[-2:], [["rev-parse", "HEAD"], ["rev-parse", "-q", "--verify", "MERGE_HEAD"]])
 
     def test_a_fetch_that_times_out_fails_cleanly_before_anything_changed(self):
         host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], fetch="hang")
@@ -495,9 +536,78 @@ class NestedHome(unittest.TestCase):
         self.assertEqual(self.git_calls(host, "subtree"), [])
 
 
+class UndoWithoutResetHard(unittest.TestCase):
+    """Kit #24 (semafor): on a failed pull or lint the tool ran git reset --hard, which semafor's
+    settings deny; a tool must not route around a deny. A failed subtree pull makes no commit, but
+    it can leave a merge in progress (a conflict, or a commit hook refusing the subject: semafor's
+    case), which git merge --abort undoes; the pull's commit, after a lint failure, goes with git
+    reset --keep, which refuses rather than overwrite a local change. Then the end is checked."""
+
+    TAGS = ["v0.1.0-alpha.13", "v0.1.0-alpha.14"]
+
+    def no_hard(self, host, out):
+        self.assertEqual([c for c in host.git_calls("reset") if "--hard" in c], [])
+        self.assertNotIn("--hard", out)
+
+    def test_a_merge_the_pull_left_in_progress_is_aborted(self):
+        for pull, said in (("conflict", "Merge conflict in VERSION"), ("hook", "need a story ref")):
+            with self.subTest(pull=pull):
+                host = FakeHost(tags=self.TAGS, pull=pull)
+                code, out = run_tool(host)
+                self.assertEqual(code, 1, out)
+                self.assertIn(said, out)
+                self.assertIn("; the pull is undone (back to start123)", out)
+                self.assertEqual(host.git_calls("merge"), [["merge", "--abort"]])
+                self.assertEqual(host.git_calls("reset"), [])
+                self.no_hard(host, out)
+
+    def test_a_pull_that_failed_before_merging_is_left_alone(self):
+        host = FakeHost(tags=self.TAGS, pull="refused")
+        code, out = run_tool(host)
+        self.assertEqual(code, 1, out)
+        self.assertIn("Cannot add.; nothing changed (still at start123)", out)
+        self.assertEqual(host.git_calls("merge") + host.git_calls("reset"), [])
+
+    def test_a_lint_failure_takes_the_pull_commit_back_with_reset_keep(self):
+        host = FakeHost(tags=self.TAGS, lint="fail")
+        code, out = run_tool(host)
+        self.assertEqual(code, 1, out)
+        self.assertIn("    FAIL rules.yaml: a check the new version added", out)
+        self.assertIn("the lint gate failed on the new version; the pull is undone (back to start123)", out)
+        self.assertEqual(host.git_calls("reset"), [["reset", "--keep", "start123"]])
+        self.assertEqual(host.head, "start123")
+        self.no_hard(host, out)
+
+    def test_a_reset_keep_that_refuses_is_said_exit_3_and_nothing_forced(self):
+        host = FakeHost(tags=self.TAGS, lint="fail", keep_rc=128)
+        code, out = run_tool(host)
+        self.assertEqual(code, ku.EXIT_ROLLBACK_FAILED, out)
+        self.assertIn("the lint gate failed on the new version, AND the undo failed", out)
+        self.assertIn("git reset --keep start123 said: error: Entry 'memory-kit/VERSION' not uptodate.", out)
+        self.assertEqual(host.git_calls("reset"), [["reset", "--keep", "start123"]])
+        self.no_hard(host, out)
+
+    def test_a_change_left_behind_is_never_called_undone(self):
+        host = FakeHost(tags=self.TAGS, pull="hang-dirty")
+        code, out = run_tool(host)
+        self.assertEqual(code, ku.EXIT_ROLLBACK_FAILED, out)
+        self.assertIn("still changed: memory-kit/VERSION", out)
+        self.assertEqual(host.git_calls("reset"), [])
+        self.no_hard(host, out)
+
+    def test_a_nested_home_is_undone_at_the_top(self):
+        host = FakeHost(tags=self.TAGS, lint="fail", nested="teams/apex")
+        seen = {}
+        code, out = run_tool(host, home_rel="ws/teams/apex", home_out=seen)
+        self.assertEqual(code, 1, out)
+        [reset] = [argv for argv, kw in host.calls if argv[:2] == ["git", "-C"] and argv[3] == "reset"]
+        self.assertEqual(reset, ["git", "-C", str(seen["home"].parent.parent), "reset", "--keep", "start123"])
+
+
 class UntrackedFiles(unittest.TestCase):
-    """Kit #25: an untracked scratch folder outside memory-kit/ refused the update. The undo is a
-    reset --hard, which leaves untracked files alone, and the pull writes only under memory-kit/."""
+    """Kit #25: an untracked scratch folder outside memory-kit/ refused the update. The undo
+    (merge --abort, reset --keep; kit #24) leaves untracked files alone, and the pull writes only
+    under memory-kit/."""
 
     def test_untracked_files_outside_the_kit_do_not_refuse(self):
         code, out = run_tool(FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"], status="?? scratchpad/notes.md\n?? todo.txt"))
