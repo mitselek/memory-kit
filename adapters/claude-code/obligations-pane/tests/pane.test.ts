@@ -192,7 +192,20 @@ describe('kit_home: the start folder points at the home (kit #18)', () => {
     expect(world.opened).toEqual(['obligations'])
     const ui = await mountPane($)
     expect(await dates(ui)).toHaveLength(0)
-    expect((await textOf(ui)).some(t => t.startsWith('kit_home pointer broken: ') && t.includes('no memory-kit.conf there'))).toBe(true)
+    expect((await textOf(ui)).some(t => t.startsWith('memory-kit.conf problem: ') && t.includes('no memory-kit.conf there'))).toBe(true)
+    await ui.unmount()
+  })
+
+  test('a conf giving a key twice is shown in the pane, never a silent pick of either directory (kit #55)', async ($, on) => {
+    const conf = 'memory_dir: memory\nmemory_dir: notes\n'
+    const world = worldOf(on, { 'memory-kit.conf': conf, 'memory/obligations.yaml': WORKSHOP_YAML, 'notes/obligations.yaml': WORKSHOP_YAML })
+    mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    expect(world.opened).toEqual(['obligations'])
+    const ui = await mountPane($)
+    expect(await dates(ui)).toHaveLength(0)
+    const said = `memory-kit.conf problem: ${CWD}/memory-kit.conf: duplicate key 'memory_dir' on line 2 (first on line 1)`
+    expect((await textOf(ui)).some(t => t.startsWith(said))).toBe(true)
     await ui.unmount()
   })
 

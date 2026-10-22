@@ -365,6 +365,75 @@ class KitHomePointer(unittest.TestCase):
         self.assertEqual(kit_home.resolve(self.root / "start").ignored, ["watch_sources", "memory_dir"])
 
 
+
+class KitHomeKeyTwice(unittest.TestCase):
+    """Kit #55: a memory-kit.conf that gives a top-level key twice is a problem, said plainly and
+    worded as the plugins' hooks/kit-home.ts words it; never a silent pick. YAML kept the last
+    copy and the line readers the first, so the lint and the pane read two memory directories."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def twice(self, conf, key, line, first):
+        return f"{conf}: duplicate key '{key}' on line {line} (first on line {first}); the plugins would take the first and the lint the last, so keep only one"
+
+    def test_in_the_start_folders_conf(self):
+        tree(self.root, {"start/memory-kit.conf": "memory_dir: memory\nmode: gate\nmemory_dir: notes  # moved\n"})
+        r = kit_home.resolve(self.root / "start")
+        conf = self.root / "start" / "memory-kit.conf"
+        self.assertEqual((r.home, r.pointer, r.problem), (None, conf, self.twice(conf, "memory_dir", 3, 1)))
+
+    def test_in_the_conf_a_pointer_names(self):
+        tree(self.root, {"start/memory-kit.conf": "kit_home: ../desk\n", "desk/memory-kit.conf": "update: pinned\n\nupdate: latest\n"})
+        r = kit_home.resolve(self.root / "start")
+        self.assertEqual((r.home, r.pointer), (None, self.root / "start" / "memory-kit.conf"))
+        self.assertEqual(r.problem, self.twice(self.root / "desk" / "memory-kit.conf", "update", 3, 1))
+
+    def test_kit_home_itself_twice(self):
+        tree(self.root, {"start/memory-kit.conf": "kit_home: ../a\nkit_home: ../b\n", "a/memory-kit.conf": "", "b/memory-kit.conf": ""})
+        conf = self.root / "start" / "memory-kit.conf"
+        self.assertEqual(kit_home.resolve(self.root / "start").problem, self.twice(conf, "kit_home", 2, 1))
+
+    def test_in_a_conf_found_above(self):
+        tree(self.root, {"home/memory-kit.conf": "memory_dir: a\nmemory_dir: b\n", "home/sub/x": ""})
+        r = kit_home.resolve(self.root / "home/sub", upward=True)
+        self.assertEqual(r.problem, self.twice(self.root / "home" / "memory-kit.conf", "memory_dir", 2, 1))
+
+    def test_a_key_repeated_inside_a_block_is_not_top_level(self):
+        conf = 'watch_files:\n  - label: "a"\n    path: a.txt\n  - label: "b"\n    path: b.txt\n# memory_dir: old\nmemory_dir: memory\n'
+        tree(self.root, {"start/memory-kit.conf": conf})
+        r = kit_home.resolve(self.root / "start")
+        self.assertEqual((r.home, r.problem), (self.root / "start", None))
+
+    def test_kit_update_refuses_it_before_reading_the_channel(self):
+        host = FakeHost(tags=["v0.1.0-alpha.13", "v0.1.0-alpha.14"])
+        tree(self.root, {"desk/memory-kit.conf": "update: latest\nupdate: pinned\n", "desk/memory-kit/VERSION": "0.1.0-alpha.13\n"})
+        real, ku.subprocess.run = ku.subprocess.run, host
+        out = io.StringIO()
+        try:
+            with redirect_stdout(out):
+                code = ku.main(["kit-update.py", str(self.root / "desk")])
+        finally:
+            ku.subprocess.run = real
+        self.assertEqual(code, 2, out.getvalue())
+        self.assertIn("duplicate key 'update' on line 2 (first on line 1)", out.getvalue())
+        self.assertEqual(host.calls, [])
+
+    def test_the_lint_on_a_memory_directory_named_directly_fails_in_every_mode(self):
+        # Named directly, the lint follows no pointer, so kit_home.resolve never reads the conf; the
+        # mode still comes from it, loaded as a tier is loaded.
+        tree(self.root, {"home/memory-kit.conf": "mode: gauge\nmode: gate\n", "home/memory/scratchpad.yaml": "current: []\nstaging: []\n"})
+        lint = [sys.executable, str(HERE.parent / "lint" / "memory_lint.py"), str(self.root / "home" / "memory")]
+        for mode in ([], ["--report"]):
+            r = subprocess.run([*lint, *mode], capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(r.returncode, 2, r.stdout)
+            self.assertIn(f"FAIL memory-kit.conf: {self.root / 'home' / 'memory-kit.conf'}: duplicate key 'mode' on line 2 (first on line 1)", r.stdout)
+
+
 class KitHomeUpward(unittest.TestCase):
     """kit #42: a start folder without a conf takes the nearest one above it, when asked."""
 

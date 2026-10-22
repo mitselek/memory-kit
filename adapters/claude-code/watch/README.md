@@ -211,6 +211,10 @@ kit_home: ../desk        # absolute, or relative to this conf's own folder
 - **Never silent:** a target with no `memory-kit.conf`, a chained pointer or a `~` path is one
   visible notice, and the watch rings nothing. It never falls back to the start folder. `/watch`
   names the home and the pointer.
+- **A key given twice** (kit #55): a `memory-kit.conf` that gives a top-level key twice, the start
+  folder's or the one a pointer names, is the same kind of notice, naming the key and both lines,
+  and the watch rings nothing. It would read the first copy where YAML keeps the last; now neither
+  picks.
 - A session whose home came from the user-scope `home` option but which started outside that home
   rings nothing there (one notice); its own session sensors still run.
 - The lint and the tools follow the same pointer (`lint/kit_home.py`). This plugin's copy of the

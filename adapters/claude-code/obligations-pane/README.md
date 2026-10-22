@@ -250,7 +250,11 @@ kit_home: ../desk        # absolute, or relative to this conf's own folder
   loop. `kit_home: .` is just the home.
 - **Absolute paths:** POSIX, a drive letter (`C:\` or `C:/`) or UNC. `~` is not expanded: write
   the path absolute or relative to the conf.
-- **Never silent:** a broken pointer fills the pane with "kit_home pointer broken: <why>", and the pane opens itself to show it, never the start folder's ledger instead. A pointed home without `memory-kit/VERSION` shows `memory-kit ?` in the header and asks upstream nothing.
+- **Never silent:** a broken pointer fills the pane with "memory-kit.conf problem: <why>", and the pane opens itself to show it, never the start folder's ledger instead. A pointed home without `memory-kit/VERSION` shows `memory-kit ?` in the header and asks upstream nothing.
+- **A key given twice** (kit #55): a `memory-kit.conf` that gives a top-level key twice, the start
+  folder's or the one a pointer names, is the same kind of problem, shown the same way: "duplicate
+  key 'memory_dir' on line 5 (first on line 3)". The pane had read the first `memory_dir:` and the
+  lint the last, so the two read different memory directories; now neither picks.
 - The lint and the tools follow the same pointer (`lint/kit_home.py`). This plugin's copy of the
   rules is `hooks/kit-home.ts`, identical in all three plugins; `lint/run-fixtures.sh` fails when
   the copies differ.

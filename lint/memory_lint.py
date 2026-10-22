@@ -584,7 +584,15 @@ def main(argv=None):
     conf_path = home / "memory-kit.conf"
     conf = {}
     if conf_path.exists():
-        conf = yaml.safe_load(conf_path.read_text(encoding="utf-8")) or {}
+        # Loaded as a tier is (kit #55): a key given twice below the top, or in the conf beside a
+        # memory directory named directly (no pointer followed, so resolve never read it), fails
+        # in every mode, as a broken pointer does; the key given twice may be mode: itself.
+        try:
+            conf = strict_load(conf_path.read_text(encoding="utf-8")) or {}
+        except DuplicateKey as e:
+            print(f"memory-kit lint {version} -- {home}")
+            print(f"  FAIL memory-kit.conf: {conf_path}: {e.message()}")
+            return 2
     mem = target if target.name == "memory" else home / conf.get("memory_dir", "memory")
 
     # Mode: flag beats config; config beats the default. A home adopting an existing tree

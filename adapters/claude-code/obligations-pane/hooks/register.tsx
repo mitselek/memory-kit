@@ -332,7 +332,8 @@ export async function refresh($: EngineInterface, settings: Settings): Promise<v
   const ledger: Pick<PaneSnapshot, 'source' | 'error' | 'items'> =
     'problem' in found ? { source: 'pointer', error: found.problem, items: [] } : await readObligations($, path)
   const offsetMinutes = await offsetOf($, now)
-  // kit #43: the open tab, remembered per home; a broken pointer shows on every tab as it is.
+  // kit #43: the open tab, remembered per home; a conf problem (a broken pointer, kit #18, or a
+  // key given twice, kit #55) shows on every tab as it is.
   const view = await choiceFor($, home)
   const tier = 'problem' in found ? null : await readTier($, view, root, isoDate(now, offsetMinutes), offsetMinutes)
   const urls = await resolveUrls($, root, ledger.items, tier)
@@ -835,7 +836,7 @@ export const register: Register = (on, options) => {
       snap.source === 'missing' ? (
         <Text color={DATE_FG}>no obligations file here ({snap.path})</Text>
       ) : snap.source === 'pointer' ? (
-        <Text color="#9e0000">kit_home pointer broken: {snap.error}</Text>
+        <Text color="#9e0000">memory-kit.conf problem: {snap.error}</Text>
       ) : snap.source === 'error' ? (
         <Text color="#9e0000">obligations.yaml unreadable: {snap.error}</Text>
       ) : items.length === 0 ? (
