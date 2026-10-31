@@ -731,6 +731,19 @@ class PluginSteps(unittest.TestCase):
         self.assertIn("claude plugin marketplace update memory-kit", out)
         self.assertNotIn("claude plugin update ", out)
 
+    def test_a_plugins_tests_changing_is_not_a_plugin_change(self):
+        """Kit #66: a change under <plugin>/tests/ ships nothing; it must not name the plugin."""
+        tests_only = "memory-kit/adapters/claude-code/obligations-pane/tests/pane-test.ts\n"
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff=tests_only))
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("claude plugin update ", out)
+        self.assertNotIn("plugins changed:", out)
+        both = tests_only + "memory-kit/adapters/claude-code/obligations-pane/hooks/pane.ts\n"
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff=both))
+        self.assertEqual(code, 0, out)
+        self.assertIn("plugins changed: obligations-pane", out)
+        self.assertIn("claude plugin update obligations-pane@memory-kit", out)
+
     def test_no_adapter_change_says_nothing_about_plugins(self):
         code, out = run_tool(FakeHost(tags=self.TAGS))
         self.assertEqual(code, 0, out)

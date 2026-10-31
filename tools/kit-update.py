@@ -188,11 +188,19 @@ def named(paths):
     return ", ".join(paths[:5]) + more
 
 
+def is_plugin_test(path):
+    """A path under <plugin>/tests/: it ships nothing, so it is not a plugin change (#66)."""
+    parts = path.split("/")
+    return (path.startswith("memory-kit/adapters/claude-code/") and len(parts) >= 6
+            and parts[4] == "tests")
+
+
 def changed_plugins(changed):
-    """The plugin folders a pull changed, by name (the marketplace's own .claude-plugin/ is none)."""
+    """The plugin folders a pull changed, by name (the marketplace's own .claude-plugin/ is none;
+    a plugin's tests/ is not a change)."""
     return sorted({p.split("/")[3] for p in changed
                    if p.startswith("memory-kit/adapters/claude-code/") and p.count("/") >= 4
-                   and not p.split("/")[3].startswith(".")})
+                   and not p.split("/")[3].startswith(".") and not is_plugin_test(p)})
 
 
 def plugin_steps(changed, why="a pull never updates an installed plugin"):
@@ -405,6 +413,7 @@ def main(argv):
     # -z, so a folder name with a space or an accent is not split or quoted.
     plugins = [p[len(below):] for p in
                git(top, "diff", "--name-only", "-z", start, "HEAD", "--", f"{kit}/adapters").stdout.split("\0") if p]
+    plugins = [p for p in plugins if not is_plugin_test(p)]
     say(f"updated {current} -> {target[1:]} ({channel}); lint gate passes; committed locally, not pushed")
     if plugins:
         update_plugins(home, plugins)
