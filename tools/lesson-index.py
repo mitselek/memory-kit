@@ -14,10 +14,12 @@ Each memory/lessons/<slug>.md starts with a YAML front-matter block carrying the
     # Title
     When -- Why -- What to do -- What not to do.
 
-Usage: tools/lesson-index.py [memory_dir]          write the index (default: memory)
+Usage: tools/lesson-index.py [memory_dir]          write the index (default: the memory_dir of the
+                                           nearest memory-kit.conf, else memory)
        tools/lesson-index.py [memory_dir] --from-index  one-time upgrade: write front matter into
                                            lessons that lack it, from the existing index
        tools/lesson-index.py [memory_dir] --check  exit 1 if the index on disk is not what would be generated
+       tools/lesson-index.py --help | -h           print this usage and write nothing
 
 A key given twice, in a lesson's front matter or in the index, stops the run, naming the file, the
 key and both lines as the lint does; plain YAML would keep the last copy, silently (kit #55).
@@ -31,6 +33,7 @@ import yaml
 # there is a dirty tree, which kit-update.py refuses.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lint"))
+import kit_home  # noqa: E402  (kit #62: memory-kit.conf names the memory directory)
 # A key given twice is an error, as the lint reads it, never the last copy kept silently (kit #55).
 from strict_yaml import DuplicateKey, strict_load  # noqa: E402
 
@@ -102,12 +105,47 @@ def from_index(lessons_dir, index):
     print(f"{index}: front matter written into {done} lesson(s)")
 
 
+def usage():
+    return __doc__[__doc__.index("Usage:"):].split("\n\n")[0]
+
+
+def default_memory_dir():
+    """No folder named: the memory_dir of the nearest memory-kit.conf, as the other tools read it."""
+    found = kit_home.resolve(Path.cwd(), upward=True)
+    if found.problem:
+        sys.exit(f"memory-kit: {found.problem}")
+    name = "memory"
+    conf = found.home / "memory-kit.conf"
+    if conf.exists():
+        try:
+            name = (strict_load(conf.read_text(encoding="utf-8")) or {}).get("memory_dir", "memory")
+        except DuplicateKey as e:
+            sys.exit(f"memory-kit: {conf}: {e.message()}")
+    return found.home / name
+
+
 def main(argv):
-    args = [a for a in argv if not a.startswith("--")]
-    mem = Path(args[0]) if args else Path("memory")
+    if "--help" in argv or "-h" in argv:
+        print(usage())
+        return 0
+    flags = [a for a in argv if a.startswith("-")]
+    unknown = [a for a in flags if a not in ("--from-index", "--check")]
+    if unknown:
+        sys.stderr.write(f"lesson-index.py: unknown option {unknown[0]}\n{usage()}\n")
+        return 2
+    args = [a for a in argv if not a.startswith("-")]
+    mem = Path(args[0]) if args else default_memory_dir()
+    if not mem.is_dir():
+        sys.stderr.write(f"lesson-index.py: no such memory directory: {mem}\n")
+        return 1
     lessons = mem / "lessons"
-    lessons.mkdir(exist_ok=True)
     index = lessons / "index.yaml"
+    if "--check" in argv or "--from-index" in argv:
+        if not lessons.is_dir():
+            sys.stderr.write(f"lesson-index.py: no such lessons directory: {lessons}\n")
+            return 1
+    else:
+        lessons.mkdir(exist_ok=True)
     if "--from-index" in argv:
         from_index(lessons, index)
         return 0
