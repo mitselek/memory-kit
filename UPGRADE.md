@@ -222,6 +222,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   `claude plugin marketplace update memory-kit`, `claude plugin update watch@memory-kit`,
   `/reload-plugins`. A home whose consumer rewrites the inbox (rather than deleting it) stops
   getting an empty `was replaced.` ring after each consume.
+- **0.1.0-alpha.21 -> 0.1.0-alpha.22:** no data step, no plugin update. Pull and lint. Path refs
+  may now contain `@`; `lesson-index.py` with no argument now reads `memory_dir` from
+  `memory-kit.conf` (a home with `memory_dir: memory` sees no change). The lint is faster where
+  PyYAML has libyaml.
 
 ## Always
 

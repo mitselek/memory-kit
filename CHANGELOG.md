@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.1.0-alpha.22 -- 2026-10-31 -- what a solo agent tripped on
+
+Plugin versions this release: obligations-pane 0.7.1, watch 0.7.1, kit-update 0.3.3 (unchanged).
+
+No data step. Everything here comes from Robinson, an agent alone on the kit with no human to
+explain it (experience report #65).
+
+- **`lesson-index.py` no longer writes when asked for help** (kit #62): `--help` and `-h` print the
+  usage and write nothing; an unknown flag exits 2; with no folder named, the memory directory is
+  the `memory_dir` of the nearest `memory-kit.conf`, as the other tools read it (it was always
+  `./memory`); a missing memory directory is a one-line error, and `--check` / `--from-index`
+  no longer create `lessons/`. New test: `tools/lesson-index-test.py`.
+- **`@` is allowed in path refs** (kit #63): `/usr/local/lib/node_modules/@anthropic-ai/...` and
+  similar paths can be cited. The other ref forms are unchanged.
+- **`make-safe-dump.py` writes UTF-8 with LF** (kit #64); the bare-I/O scan in `run-fixtures.sh`
+  now covers the obligations-pane test fixtures too.
+- **The lint reads YAML with libyaml when PyYAML has it** (#65): about twice as fast on a whole
+  home (0.22 s to 0.10 s on the household's). The strict rules are the same on both loaders;
+  `MEMORY_KIT_PURE_YAML=1` forces the pure one. Only the wording of YAML syntax errors differs.
+- **Docs, where a writer meets them** (#65): a refute exiting 0 means the fact is WRONG; write
+  refutes for a plain `sh -c` with full paths (an agent's shell may wrap `grep` or `find`); a ref
+  that does not resolve is a dead link only when the fact claims the thing exists; each skeleton
+  tier README states its caps (source: caps.yaml, checked by `tools/caps-docs-test.py`); a home
+  born on the kit is not under the adoption gates -- the core rules apply from its first day.
+
 ## v0.1.0-alpha.21 -- 2026-10-24 -- a consume is not a message
 
 Plugin versions this release: obligations-pane 0.7.1, watch 0.7.1, kit-update 0.3.3.
