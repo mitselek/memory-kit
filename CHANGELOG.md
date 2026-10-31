@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.0-alpha.23 -- 2026-10-31 -- a refute is a lookup or a check
+
+Plugin versions this release: obligations-pane 0.7.1, watch 0.7.1, kit-update 0.3.3 (unchanged).
+
+No data step. Two corrections to alpha.22, both found by homes applying it the same day.
+
+- **A refute is a lookup or a check** (#65): alpha.22 stated as a kit rule that "a command refute
+  that exits 0 means the fact is WRONG". The kit never defined exit codes, and most refutes are
+  lookups: a path, an address or a command whose output a reader judges. Those stay valid, as
+  before. The exit-code reading binds only a refute written as a check -- a command whose exit
+  status decides, for unattended sweeps; write it for a plain `sh -c` with full paths. Found by
+  Laidoner and esl-suvekool (Tobi). Nobody needs to rewrite a refute.
+- **kit-update no longer updates a plugin whose tests alone changed** (#66): alpha.22 touched an
+  obligations-pane test fixture, and kit-update ran `claude plugin update obligations-pane` for an
+  unchanged 0.7.1. Paths under `<plugin>/tests/` no longer count. Found by po-team (Henry),
+  esl-suvekool, mvox and print-shop.
+
 ## v0.1.0-alpha.22 -- 2026-10-31 -- what a solo agent tripped on
 
 Plugin versions this release: obligations-pane 0.7.1, watch 0.7.1, kit-update 0.3.3 (unchanged).
