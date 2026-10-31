@@ -90,6 +90,13 @@ else
   fail=$((fail+1)); echo "CLI FAIL         tools/lesson-index-test.py:"; printf '%s\n' "$out" | tail -n 15 | sed 's/^/    /'
 fi
 
+# The caps the skeleton READMEs state are the caps in caps.yaml (kit #65).
+if out=$(python3 "$KIT/tools/caps-docs-test.py" 2>&1); then
+  pass=$((pass+1))
+else
+  fail=$((fail+1)); echo "CAPS DOCS        skeleton README caps differ from caps.yaml:"; printf '%s\n' "$out" | tail -n 15 | sed 's/^/    /'
+fi
+
 # The three plugins each carry a copy of the kit_home rules and their test (kit #18): a plugin
 # loads only its own folder. The copies must stay identical, or the plugins disagree on the home.
 AD="$KIT/adapters/claude-code"

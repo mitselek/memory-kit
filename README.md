@@ -161,8 +161,11 @@ contract**; the types state it; `caps.yaml` is the machine-readable extract.
 `sha | path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | blank`
 
 A path may hold letters, digits and `. _ / @ -` (`@` for npm scopes such as
-`@anthropic-ai/claude-code`). Blank is counted, never failed -- failing it buys fabricated refs. `refute: "=ref"` means the
-origin doubles as the test.
+`@anthropic-ai/claude-code`). Blank is counted, never failed -- failing it buys fabricated refs.
+
+`refute: "=ref"` means the origin doubles as the test. A command refute that exits 0 means the
+fact is WRONG; non-zero means it survived. Write it for a plain `sh -c` with full paths. See
+`skeleton/memory/facts/README.md`.
 
 ## What the kit costs a home, in context
 

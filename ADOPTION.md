@@ -7,6 +7,11 @@ You are the assistant of a home that already has memory habits -- files, notes, 
 whatever shape they took. Your job is to map those habits onto the kit's tiers without losing
 anything and without deciding, on your own, anything that is the human's to decide.
 
+**Who this binds.** Only a home that is being converted. A home born on the kit (started from
+`skeleton/`, no `adoption/` folder, never converted) is not under these gates or under rule 1
+below. The core rules apply to it from its first day, including this one: a refuted fact is
+deleted, not annotated. Git is the archive.
+
 Read the whole file before acting. Then work the phases in order.
 
 ## Rules that bind you for the whole adoption

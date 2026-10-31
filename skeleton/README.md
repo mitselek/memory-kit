@@ -12,4 +12,7 @@ know last Tuesday" a checkout rather than a reconstruction.
   memory-kit.conf   this home's config for the kit; a pull never touches it
 ```
 
+A home born on the kit is not under the gates in `ADOPTION.md`. The core rules apply from its
+first day, including deleting refuted facts.
+
 A home that already has memory habits does not start here: it runs `ADOPTION.md` instead.
