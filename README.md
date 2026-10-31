@@ -160,7 +160,8 @@ contract**; the types state it; `caps.yaml` is the machine-readable extract.
 
 `sha | path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | blank`
 
-Blank is counted, never failed -- failing it buys fabricated refs. `refute: "=ref"` means the
+A path may hold letters, digits and `. _ / @ -` (`@` for npm scopes such as
+`@anthropic-ai/claude-code`). Blank is counted, never failed -- failing it buys fabricated refs. `refute: "=ref"` means the
 origin doubles as the test.
 
 ## What the kit costs a home, in context

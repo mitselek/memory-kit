@@ -6,5 +6,6 @@ current:
   - {label: PATTERN,  record: "a ruling ref", ref: "po:S70"}
   - {label: WARNING,  record: "a person-date ref", ref: "mihkel:2026-09-21"}
   - {label: DEFERRED, record: "a bare date ref", ref: "2026-09-21"}
+  - {label: LEARNED,  record: "a path ref with an at sign", ref: /usr/local/lib/node_modules/@anthropic-ai/claude-code}
   - {label: LEARNED,  record: "blank ref is counted, never failed", ref: ""}
 staging: []

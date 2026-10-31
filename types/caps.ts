@@ -33,8 +33,9 @@ export const LESSON_INDEX_LINE_CAP = 120;   // the index is GENERATED, never han
 
 // Ref grammar, shared by every tier:
 //   sha | repo path | #NN | urls/<name> | po:SNN | <person>:<date> | <date> | blank
+// A path may hold letters, digits and . _ / @ - (@ for npm scopes such as @anthropic-ai/claude-code).
 // Blank is COUNTED, never failed: failing blanks buys fabricated refs.
 // '=ref' in a refute field means the origin doubles as the test.
 export const REF_PATTERN =
-  '^$|^[0-9a-f]{7,40}$|^[A-Za-z0-9._\\/-]+$|^#[0-9]+$|^urls\\/[a-z0-9-]+$|^po:S[0-9]+$|^[a-z][a-z0-9_-]*:[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$';
+  '^$|^[0-9a-f]{7,40}$|^[A-Za-z0-9._\\/@-]+$|^#[0-9]+$|^urls\\/[a-z0-9-]+$|^po:S[0-9]+$|^[a-z][a-z0-9_-]*:[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$';
 export const REFUTE_SAME_AS_REF = '=ref';
