@@ -1,5 +1,5 @@
 # One file per SUBJECT; the filename names the subject, never the moment. `ls` is the index.
-# A command refute that exits 0 means the fact is WRONG. "=ref" means the ref is the test.
+# A refute is a lookup (read it, judge it) or a check (exit 0 means the fact is WRONG). "=ref" means the ref is the test.
 # Shape: types/memory-facts.ts. Delete this file once the home has real subjects.
 
 facts:

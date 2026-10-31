@@ -11,12 +11,13 @@ export interface Fact {
   /** One present-tense sentence, <= FACT_WORD_CAP words. */
   fact: string;
   ref: Ref;
-  /** Where to prove it WRONG: a command or a path. REFUTE_SAME_AS_REF when the origin is
-   *  the test. Blank = no test known; counted.
-   *  A command refute that exits 0 means the fact is WRONG (refuted); non-zero means it survived.
-   *  It is meant to run under a plain `sh -c` with system tools. An agent's own interactive shell
-   *  may have functions or aliases (in Claude Code, `grep` is a function and `find` runs bfs), so
-   *  write full paths (/usr/bin/grep) or test the refute under `sh -c`. */
+  /** Where to prove it WRONG. REFUTE_SAME_AS_REF when the origin is the test. Blank = no test
+   *  known; counted. Two kinds:
+   *  a lookup -- a path, an address, or a command whose output a reader judges; the common case.
+   *  a check -- a command whose exit status decides, for unattended sweeps. Written as a check,
+   *  exit 0 means the fact is WRONG (refuted) and non-zero means it survived; invert with `!`
+   *  where needed. Write it for a plain `sh -c` with full paths: an agent's interactive shell may
+   *  wrap grep or find (in Claude Code, `grep` is a function and `find` runs bfs). */
   refute: string;
   /** Last date it SURVIVED a refutation attempt. Not a birthday. */
   verified: IsoDate;

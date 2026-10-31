@@ -10,16 +10,22 @@ If proving it wrong would be a new decision rather than a discovery, it is not a
 
 ## Writing a refute
 
-A refute is a command or a path. `"=ref"` means the ref itself is the test.
+A refute says where to prove the fact WRONG. It comes in two kinds. `"=ref"` means the ref
+itself is the test.
 
-**Exit codes.** A command refute that exits 0 means the fact is WRONG (refuted). A non-zero exit
-means the fact survived. This is the opposite of most tests. Example, for the fact "git is
-installed" with ref `/usr/bin/git`: `refute: "/usr/bin/test ! -e /usr/bin/git"` exits 0 only if
-git is gone, so exit 0 means the fact is wrong.
+**A lookup.** A path, an address, or a command whose output a reader judges: open it expecting to
+be contradicted. Examples: `curl <api> ...`, `Gmail thread <id> (sender, date)`, `ask <person>`.
+This is valid, and it is the common case.
 
-**The shell.** Write a refute for a plain `sh -c` with system tools. An agent's own interactive
-shell may differ: in Claude Code, `grep` is a shell function and `find` runs bfs. Use full paths
-(`/usr/bin/grep`) or test the refute under `sh -c '...'` before you save it.
+**A check.** A command whose exit status decides, for unattended sweeps. If you write a refute as a
+check, exit 0 means the fact is WRONG (refuted) and non-zero means it survived. This is the
+opposite of most tests; invert with `!` where needed. Example, for the fact "git is installed" with
+ref `/usr/bin/git`: `refute: "/usr/bin/test ! -e /usr/bin/git"` exits 0 only if git is gone, so
+exit 0 means the fact is wrong.
+
+**The shell.** Write a check for a plain `sh -c` with full paths. An agent's own interactive shell
+may wrap grep or find: in Claude Code, `grep` is a shell function and `find` runs bfs. Use full
+paths (`/usr/bin/grep`) or test the check under `sh -c '...'` before you save it.
 
 **Dead links and facts about absence.** A ref that does not resolve is a dead link only when the
 fact claims the thing exists. For a fact about absence ("git is not installed", ref
