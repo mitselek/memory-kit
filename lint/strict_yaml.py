@@ -6,7 +6,16 @@ through here, so a tool run on its own reads a file as the gate reads it.
 
 Needs PyYAML; each importer checks for it first, with its own message.
 """
+import os
+
 import yaml
+
+# libyaml's parser is about five times faster than the pure Python one (kit #65). Use it when
+# PyYAML was built with it; MEMORY_KIT_PURE_YAML=1 forces the pure loader. The rules below are
+# the same on both: StrictLoader overrides only construct_mapping, which both share.
+_BASE = yaml.SafeLoader
+if not os.environ.get("MEMORY_KIT_PURE_YAML") and hasattr(yaml, "CSafeLoader"):
+    _BASE = yaml.CSafeLoader
 
 
 class DuplicateKey(yaml.YAMLError):
@@ -25,7 +34,7 @@ class DuplicateKey(yaml.YAMLError):
         return f"{self}; YAML keeps only the last, silently"
 
 
-class StrictLoader(yaml.SafeLoader):
+class StrictLoader(_BASE):
     """safe_load that refuses a duplicate key at every depth instead of keeping the last: a lost
     row field is silent data loss as much as a lost top-level block (kit #54)."""
 

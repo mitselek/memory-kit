@@ -5,6 +5,10 @@
 Reads `caps.yaml`; needs python3 + PyYAML and nothing else. Fails closed (exit 2) when PyYAML
 is missing: a lint that skips checks is worse than no lint.
 
+YAML is read with libyaml's C parser when PyYAML has it, and the pure Python one otherwise; the
+rules are the same (a repeated key is refused on both). `MEMORY_KIT_PURE_YAML=1` forces the pure
+loader. Only the wording of a YAML syntax error differs.
+
 - `--gate` exits 1 on any failure. Default for a fresh home.
 - `--report` always exits 0. For a home still clearing adoption debt.
 - Neither: the mode comes from `memory-kit.conf` (`mode: gate | gauge`), default gate.
