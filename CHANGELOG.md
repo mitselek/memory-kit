@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.0-alpha.24 -- 2026-11-02 -- context discipline
+
+Plugin versions this release: obligations-pane 0.7.1, watch **0.8.0**, kit-update 0.3.3.
+
+No data step. Optional, nothing changes for a home that declares nothing new.
+
+- **`CONTEXT.md`: checkpoints and a timely retire** (#68). A long session gets dearer and less
+  reliable as its context fills. The page gives the household's rule (checkpoint at 50, 60 and
+  70% of the model's window, retire at 80%) and the checkpoint routine: regenerate scratchpad
+  `current`, run the lint gate, reread `current` cold, commit and push. How a session retires and
+  relaunches stays the home's own plumbing (ruled 2026-11-01); the page shows one example.
+- **watch 0.8.0: `watch_context_step`** (#68). The context report quotes the home's declared step,
+  as the idle report quotes `watch_retire_step`, so a mark's ring says what to do. The context
+  marks themselves (`watch_context_percent`, watch 0.5.0) already read the exact figure from the
+  session; no transcript gauge and no window setting are needed.
+
 ## v0.1.0-alpha.23 -- 2026-10-31 -- a refute is a lookup or a check
 
 Plugin versions this release: obligations-pane 0.7.1, watch 0.7.1, kit-update 0.3.3 (unchanged).

@@ -229,6 +229,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
 - **0.1.0-alpha.22 -> 0.1.0-alpha.23:** no data step, no plugin update. Pull and lint. The facts
   README again treats a lookup refute (a path, an address, a command a reader judges) as valid;
   the exit-code reading binds only checks. Do not rewrite refutes for alpha.22's wording.
+- **0.1.0-alpha.23 -> 0.1.0-alpha.24:** no data step. Pull and lint; kit-update updates the watch
+  plugin to 0.8.0 (Claude Code homes, then `/reload-plugins`). Optional: read `CONTEXT.md`, and a
+  Claude Code home that wants the checkpoint rings declares `watch_context_percent` and
+  `watch_context_step` in its `memory-kit.conf`. Nothing changes for a home that declares neither.
 
 ## Always
 
