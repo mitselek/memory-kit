@@ -251,6 +251,7 @@ homes it has not seen.
 ```
 ADOPTION.md        prompt: bring an existing home onto the kit, once
 UPGRADE.md         prompt: after every pull
+CONTEXT.md         optional: checkpoints and a timely retire for long sessions (#68)
 types/             TypeScript interfaces -- the canon: shape, constants and rationale
 caps.yaml          GENERATED from types/caps.ts; the flat extract the lint reads
 tools/             extract-caps.py, lesson-index.py, obligations-due.py, kit-update.py (+ kit-update-test.py), weigh.py,

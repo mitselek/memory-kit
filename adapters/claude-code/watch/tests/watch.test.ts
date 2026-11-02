@@ -313,6 +313,14 @@ describe('conf values and session sensor numbers', () => {
       "The home's declared step for this (watch_retire_step): touch .fresh-next, then exit.",
     )
   })
+
+  test('a declared watch_context_step is quoted in the context report (kit #68)', () => {
+    expect(contextReport(60, 650_000, 1_000_000, 'run the checkpoint routine; at 80% retire')).toBe(
+      '[watch] Context has reached 65% of the window (650,000 of 1,000,000 tokens), past the 60% mark declared in memory-kit.conf. ' +
+        "The home's declared step for this (watch_context_step): run the checkpoint routine; at 80% retire.",
+    )
+    expect(contextReport(60, 650_000, 1_000_000, undefined)).toContain('This is information only')
+  })
 })
 
 describe('paths', () => {

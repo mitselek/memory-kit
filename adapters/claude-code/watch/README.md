@@ -97,6 +97,7 @@ declaring `watch_sources` (watch 0.4.x and older) gets one migration notice: dec
 watch_idle_minutes: 50
 watch_idle_repeat: true          # optional (kit #47): report again after each further interval
 watch_context_percent: 50, 60, 70, 80
+watch_context_step: "run the checkpoint routine (memory-kit/CONTEXT.md); at 80, retire"   # optional (kit #68)
 ```
 
 - **Idle:** when the session has sat that many minutes with no prompt, tool call or turn end, one
@@ -120,6 +121,10 @@ watch_context_percent: 50, 60, 70, 80
   `$.session.usage()` reading. Crossing a mark gives one report naming the load and the mark;
   each mark fires once per session; a jump over several names the highest. A compaction that
   shrinks the context does not repeat old marks.
+- **Context, with a step** (`watch_context_step`, kit #68): the report quotes the home's declared
+  step, as the idle report quotes `watch_retire_step`, so the ring says what to do. One step for
+  every mark; when the marks mean different things, the step says which mark does what (the
+  report already names the mark). The routine and the reasoning are in the kit's `CONTEXT.md`.
 
 Both are information only: what a report means -- checkpoint, retire, nothing -- is the home's
 rule (CLAUDE.md or its kin), not the watch's.

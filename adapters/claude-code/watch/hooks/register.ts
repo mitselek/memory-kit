@@ -419,7 +419,7 @@ async function reportCheck($: EngineInterface, conf: string): Promise<void> {
       const top = crossed[crossed.length - 1]
       if (top !== undefined) {
         $.ui.log(`watch: context report (${crossed.join('%, ')}% crossed)`, { to: 'debug' })
-        ask($, contextReport(top, context.tokens, context.window))
+        ask($, contextReport(top, context.tokens, context.window, confValue(conf, 'watch_context_step')))
       }
     }
   }

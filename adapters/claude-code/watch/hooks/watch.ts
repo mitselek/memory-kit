@@ -372,12 +372,16 @@ export function marksCrossed(marks: readonly number[], reported: readonly number
   return marks.filter(m => m <= pct && !reported.includes(m))
 }
 
-/** The context report: information only; the home's rules say what this level means. */
-export function contextReport(mark: number, tokens: number, window: number): string {
+/**
+ * The context report: information only; the home's rules say what this level means. A declared
+ * watch_context_step (kit #68) is quoted as the home's own declared step, as the idle report
+ * quotes watch_retire_step: the home decides, the watch only repeats it.
+ */
+export function contextReport(mark: number, tokens: number, window: number, contextStep?: string): string {
   const pct = Math.round((tokens / window) * 100)
   return [
     `[watch] Context has reached ${pct}% of the window (${tokens.toLocaleString('en-US')} of ${window.toLocaleString('en-US')} tokens), past the ${mark}% mark declared in memory-kit.conf.`,
-    'This is information only; what to do at this level is this home\'s own rule.',
+    contextStep === undefined ? 'This is information only; what to do at this level is this home\'s own rule.' : `The home's declared step for this (watch_context_step): ${contextStep}.`,
   ].join(' ')
 }
 
