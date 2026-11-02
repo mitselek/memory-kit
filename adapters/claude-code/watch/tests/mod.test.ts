@@ -767,6 +767,18 @@ describe('session reports: idle and context marks', () => {
     expect(world.submitted[1]).toContain('past the 70% mark')
   })
 
+  test('context: a declared watch_context_step is quoted in the report (kit #68)', async ($, on) => {
+    const step = '50, 60, 70: run the checkpoint routine (memory-kit/CONTEXT.md); 80: checkpoint, then retire -- touch .fresh-next and exit claude'
+    const world = worldOf(on, { 'memory-kit.conf': `watch_context_percent: 50, 60, 70, 80\nwatch_context_step: "${step}"\n` })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    world.tokens = 650_000
+    await clock.advance(5_000)
+    expect(world.submitted).toHaveLength(1)
+    expect(world.submitted[0]).toContain(`The home's declared step for this (watch_context_step): ${step}.`)
+  })
+
   test('a shrunk context (compaction) does not repeat old marks', async ($, on) => {
     const world = worldOf(on, { 'memory-kit.conf': 'watch_context_percent: 50\n' })
     const clock = mock.clock(on, { now: NOW })
