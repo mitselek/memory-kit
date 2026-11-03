@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.0-alpha.25 -- 2026-11-03 -- a warm prompt cache
+
+Plugin versions this release: obligations-pane 0.7.1, watch 0.8.0, kit-update 0.3.3 (unchanged).
+
+No data step, no plugin update. Optional, Claude Code homes only.
+
+- **`CONTEXT.md`: "Keeping the prompt cache warm"** (#70). The watch's repeating idle report
+  (`watch_idle_repeat: true`, #47) keeps a one-hour prompt cache from expiring when
+  `watch_idle_minutes` is under the hour (the household: 50). With a five-minute cache (Claude
+  Code with an API key, or a subscription in usage overage) it buys nothing and costs a turn per
+  report. At the assumed rates a report costs a twentieth of a cold rebuild, so it pays for idle
+  stretches under about 16 hours; measure before declaring it.
+- **`adapters/claude-code/tools/cache-report.py`** (#70): the measuring tool, ported from the
+  household. Reads the transcripts Claude Code keeps for the folder a session starts in and
+  reports idle pings, cold rebuilds, compactions and the largest context, with a cost estimate;
+  `--home`, `--hours`, `--log FILE`. Stdlib only; tested on a fixture transcript in
+  `run-fixtures.sh`. Not a plugin.
+
 ## v0.1.0-alpha.24 -- 2026-11-02 -- context discipline
 
 Plugin versions this release: obligations-pane 0.7.1, watch **0.8.0**, kit-update 0.3.3.

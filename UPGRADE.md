@@ -233,6 +233,10 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   plugin to 0.8.0 (Claude Code homes, then `/reload-plugins`). Optional: read `CONTEXT.md`, and a
   Claude Code home that wants the checkpoint rings declares `watch_context_percent` and
   `watch_context_step` in its `memory-kit.conf`. Nothing changes for a home that declares neither.
+- **0.1.0-alpha.24 -> 0.1.0-alpha.25:** no data step, no plugin update. Pull and lint. Optional, a
+  Claude Code home: read `CONTEXT.md`, "Keeping the prompt cache warm", and run
+  `adapters/claude-code/tools/cache-report.py` on the home before declaring (or keeping)
+  `watch_idle_repeat: true`.
 
 ## Always
 
