@@ -251,7 +251,7 @@ homes it has not seen.
 ```
 ADOPTION.md        prompt: bring an existing home onto the kit, once
 UPGRADE.md         prompt: after every pull
-CONTEXT.md         optional: checkpoints and a timely retire for long sessions (#68)
+CONTEXT.md         optional: checkpoints, a timely retire, a warm prompt cache (#68, #70)
 types/             TypeScript interfaces -- the canon: shape, constants and rationale
 caps.yaml          GENERATED from types/caps.ts; the flat extract the lint reads
 tools/             extract-caps.py, lesson-index.py, obligations-due.py, kit-update.py (+ kit-update-test.py), weigh.py,
@@ -260,8 +260,8 @@ memory/            the kit's own memory, shipped with it: kit facts, the 8 core 
 fixtures/          valid/ and invalid/ samples per tier -- the contract
 lint/              reference lint (python3 + PyYAML), --gate | --report; run-fixtures.sh
 skeleton/          the empty home a fresh consumer starts from (secrets README included)
-adapters/          harness-bound tools: adapters/claude-code/ obligations-pane, watch (+ spool/spool-poll.py), kit-update;
-                   its README.md says what a user-scope install does outside a kit home
+adapters/          harness-bound tools: adapters/claude-code/ obligations-pane, watch (+ spool/spool-poll.py), kit-update,
+                   tools/cache-report.py; its README.md says what a user-scope install does outside a kit home
 GOVERNANCE.md
 VERSION            pinned by consumers
 CHANGELOG.md

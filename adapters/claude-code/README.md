@@ -8,6 +8,9 @@ This folder is the `memory-kit` marketplace. It holds three plugins, each with i
 - [`kit-update`](kit-update/README.md): prompts the session when a kit release is out on the home's
   channel.
 
+Beside them, not a plugin: `tools/cache-report.py`, a prompt-cache report from the home's
+transcripts (kit #70; see `CONTEXT.md`, "Keeping the prompt cache warm").
+
 ## Idle compaction: turn it off in a home that retires instead (Claude Code 2.1.290+)
 
 Claude Code compacts a conversation over 200k tokens while the session is idle, before its
