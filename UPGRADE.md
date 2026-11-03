@@ -237,6 +237,11 @@ A major means data shape changed. The kit ships `migrations/<version>/` for exac
   Claude Code home: read `CONTEXT.md`, "Keeping the prompt cache warm", and run
   `adapters/claude-code/tools/cache-report.py` on the home before declaring (or keeping)
   `watch_idle_repeat: true`.
+- **0.1.0-alpha.25 -> 0.1.0-alpha.26:** no data step. Pull and lint; kit-update updates the watch
+  plugin to 0.9.0 (Claude Code homes, then `/reload-plugins`). Optional: a home with
+  `watch_idle_repeat: true` whose sessions can sit idle for days declares
+  `watch_idle_repeat_max: 20` (`CONTEXT.md`); a home that wants the state-what-is skill runs
+  `claude plugin marketplace update memory-kit` and `claude plugin install state-what-is@memory-kit`.
 
 ## Always
 

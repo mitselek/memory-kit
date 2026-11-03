@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.1.0-alpha.26 -- 2026-11-03 -- fixes from the fleet, a capped keep-warm, state-what-is
+
+Plugin versions this release: obligations-pane 0.7.1, watch **0.9.0**, kit-update 0.3.3,
+state-what-is **0.1.0** (new).
+
+No data step. Everything new is optional.
+
+- **cache-report.py honours `CLAUDE_CONFIG_DIR`** (#72, framework-research via Pepys). A seat run
+  with its own config folder read another seat's transcripts from `~/.claude` and printed zeros
+  with exit 0. The tool now reads `$CLAUDE_CONFIG_DIR/projects` when it is set, names the folder
+  it read in its first line and in the not-found error, and exits 1 with one line when no
+  transcript there falls in the window, instead of printing zeros.
+- **kit-update names only real plugins** (#71, mac-sysops). It took every folder under
+  `adapters/claude-code/` for a plugin, so alpha.25's `tools/` came out as "not installed here,
+  so not updated: tools", and without `claude` on PATH as `claude plugin update tools@memory-kit`.
+  The plugin names now come from the home's `marketplace.json`; a change outside the listed
+  plugins and the marketplace itself (`tools/`, the adapters README) is no plugin change.
+- **watch 0.9.0: `watch_idle_repeat_max`** (#74, from Laidoner's report). At most N repeating
+  idle reports in one idle stretch; the last says so, and a human prompt starts a new count.
+  At the assumed cache prices 20 reports cost one rebuild, so a cap of 20 keeps every stretch
+  under about 16 hours warm and bounds a longer one at about twice the rebuild it saves.
+  `CONTEXT.md` says when to declare it.
+- **state-what-is 0.1.0, a new plugin** (#73, by framework-research, Aen). A skill and a stdlib
+  scanner for text that narrates how a document changed ("no longer", "enam ei"), references
+  the reader cannot follow (an unlinked Jira key, an id defined nowhere), and rules kept only for
+  a dropped idea; it proposes rewrites that state what is. English and Estonian. Ported from
+  ai-teams `teams/framework-research/skills/state-what-is/` at da6e1b1a; the scanner gains
+  `--help`, refuses unknown options and unreadable files with one line, and has 9 tests in
+  `run-fixtures.sh`. Installing it is each home's choice.
+
 ## v0.1.0-alpha.25 -- 2026-11-03 -- a warm prompt cache
 
 Plugin versions this release: obligations-pane 0.7.1, watch 0.8.0, kit-update 0.3.3 (unchanged).
