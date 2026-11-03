@@ -195,6 +195,29 @@ def is_plugin_test(path):
             and parts[4] == "tests")
 
 
+def marketplace_plugins(home):
+    """The plugin folders the home's marketplace lists, by name; None when it cannot be read.
+    adapters/claude-code/ holds folders that are no plugin (tools/, alpha.25; kit #71)."""
+    path = pathlib.Path(home) / "memory-kit" / "adapters" / "claude-code" / ".claude-plugin" / "marketplace.json"
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {pathlib.PurePosixPath(p["source"]).name for p in json.load(f)["plugins"]}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def is_plugin_change(path, listed):
+    """A changed path that ships with a plugin, or the marketplace's own .claude-plugin/. With no
+    readable marketplace (listed None), any folder counts, as before #71."""
+    parts = path.split("/")
+    if not path.startswith("memory-kit/adapters/claude-code/") or len(parts) < 5 or is_plugin_test(path):
+        return False
+    folder = parts[3]
+    if folder == ".claude-plugin":
+        return True
+    return folder in listed if listed is not None else not folder.startswith(".")
+
+
 def changed_plugins(changed):
     """The plugin folders a pull changed, by name (the marketplace's own .claude-plugin/ is none;
     a plugin's tests/ is not a change)."""
@@ -413,7 +436,8 @@ def main(argv):
     # -z, so a folder name with a space or an accent is not split or quoted.
     plugins = [p[len(below):] for p in
                git(top, "diff", "--name-only", "-z", start, "HEAD", "--", f"{kit}/adapters").stdout.split("\0") if p]
-    plugins = [p for p in plugins if not is_plugin_test(p)]
+    listed = marketplace_plugins(home)
+    plugins = [p for p in plugins if is_plugin_change(p, listed)]
     say(f"updated {current} -> {target[1:]} ({channel}); lint gate passes; committed locally, not pushed")
     if plugins:
         update_plugins(home, plugins)

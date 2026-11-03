@@ -192,14 +192,23 @@ def bin_dir(root, claude):
     return d
 
 
-def run_tool(host, current="0.1.0-alpha.13", channel="latest", claude=False, home_out=None, home_rel="home", conf=""):
+MARKETPLACE = HERE.parent / "adapters" / "claude-code" / ".claude-plugin" / "marketplace.json"
+
+
+def run_tool(host, current="0.1.0-alpha.13", channel="latest", claude=False, home_out=None, home_rel="home", conf="",
+             marketplace=True):
     """The tool over a fresh home, `host` standing for subprocess.run, PATH holding only a test
     folder: with the fake `claude` (claude=True) or without one, never the real one. The home is
-    `home_rel` in a temporary folder; `conf`, more lines for its memory-kit.conf."""
+    `home_rel` in a temporary folder; `conf`, more lines for its memory-kit.conf. The home's kit
+    carries the kit's own marketplace.json unless marketplace=False (kit #71)."""
     with tempfile.TemporaryDirectory() as d:
         home = pathlib.Path(d) / home_rel
         (home / "memory-kit").mkdir(parents=True)
         (home / "memory-kit" / "VERSION").write_text(current + "\n", encoding="utf-8")
+        if marketplace:
+            mp = home / "memory-kit" / "adapters" / "claude-code" / ".claude-plugin" / "marketplace.json"
+            mp.parent.mkdir(parents=True)
+            mp.write_text(MARKETPLACE.read_text(encoding="utf-8"), encoding="utf-8")
         (home / "memory-kit.conf").write_text(f"update: {channel}\n{conf}", encoding="utf-8")
         path = bin_dir(d, claude)
         real, ku.subprocess.run = ku.subprocess.run, host
@@ -743,6 +752,33 @@ class PluginSteps(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("plugins changed: obligations-pane", out)
         self.assertIn("claude plugin update obligations-pane@memory-kit", out)
+
+    def test_a_folder_the_marketplace_does_not_list_is_not_a_plugin(self):
+        """Kit #71: alpha.25 added adapters/claude-code/tools/, which is no plugin; mac-sysops was
+        told "not installed here, so not updated: tools", and without claude on PATH the steps
+        named `claude plugin update tools@memory-kit`."""
+        tools_only = "memory-kit/adapters/claude-code/tools/cache-report.py\n"
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff=tools_only))
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("plugin", out)
+        both = tools_only + "memory-kit/adapters/claude-code/watch/hooks/watch.ts\n"
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff=both))
+        self.assertEqual(code, 0, out)
+        self.assertIn("plugins changed: watch\n", out)
+        self.assertNotIn("tools@memory-kit", out)
+
+    def test_the_adapters_readme_alone_is_not_a_plugin_change(self):
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff="memory-kit/adapters/claude-code/README.md\n"))
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("plugin", out)
+
+    def test_without_a_readable_marketplace_every_folder_counts(self):
+        """The rule before #71, kept for a kit tree with no marketplace.json: better a step too
+        many than a changed plugin left unnamed."""
+        code, out = run_tool(FakeHost(tags=self.TAGS, diff="memory-kit/adapters/claude-code/tools/cache-report.py\n"),
+                             marketplace=False)
+        self.assertEqual(code, 0, out)
+        self.assertIn("plugins changed: tools", out)
 
     def test_no_adapter_change_says_nothing_about_plugins(self):
         code, out = run_tool(FakeHost(tags=self.TAGS))
