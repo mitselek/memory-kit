@@ -54,6 +54,16 @@ def folder_name(path):
     return re.sub(r"[^a-zA-Z0-9]", "-", str(path))
 
 
+def write_fixture(folder, mtime=None):
+    folder.mkdir(parents=True)
+    path = folder / "session.jsonl"
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for e in FIXTURE:
+            f.write(json.dumps(e, separators=(",", ":")) + "\n")
+    if mtime is not None:
+        os.utime(path, (mtime, mtime))
+
+
 def tree(root):
     return sorted(str(p.relative_to(root)) for p in pathlib.Path(root).rglob("*"))
 
@@ -65,16 +75,16 @@ class CacheReport(unittest.TestCase):
         self.home = self.root / "my home.v2"          # a space and a dot: both become "-"
         self.home.mkdir()
         self.transcripts = self.root / ".claude" / "projects" / folder_name(self.home)
-        self.transcripts.mkdir(parents=True)
-        with open(self.transcripts / "session.jsonl", "w", encoding="utf-8", newline="\n") as f:
-            for e in FIXTURE:
-                f.write(json.dumps(e, separators=(",", ":")) + "\n")
+        write_fixture(self.transcripts)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_tool(self, *args, cwd=None):
+    def run_tool(self, *args, cwd=None, config_dir=None):
         env = dict(os.environ, HOME=str(self.root), PYTHONDONTWRITEBYTECODE="1")
+        env.pop("CLAUDE_CONFIG_DIR", None)
+        if config_dir is not None:
+            env["CLAUDE_CONFIG_DIR"] = str(config_dir)
         return subprocess.run([sys.executable, "-I", str(TOOL), *args], cwd=cwd or self.home,
                               env=env, capture_output=True, text=True, encoding="utf-8")
 
@@ -125,6 +135,39 @@ class CacheReport(unittest.TestCase):
         self.assertEqual(len(r.stderr.strip().splitlines()), 1, r.stderr)
         self.assertIn(folder_name(other), r.stderr)
         self.assertEqual(tree(self.root), before)
+
+    def test_claude_config_dir_names_the_seat(self):
+        # kit #72: a seat run with CLAUDE_CONFIG_DIR keeps its transcripts there; ~/.claude may
+        # hold another seat's folder for the same home, here an old one.
+        seat = self.root / ".claude-fr"
+        write_fixture(seat / "projects" / folder_name(self.home))
+        stale = (NOW - dt.timedelta(days=3)).timestamp()
+        os.utime(self.transcripts / "session.jsonl", (stale, stale))
+        r = self.run_tool(config_dir=seat)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("idle pings: 1", r.stdout)
+        self.assertIn(str(seat / "projects" / folder_name(self.home)), r.stdout)
+
+    def test_not_found_names_the_root_searched(self):
+        seat = self.root / ".claude-empty"
+        seat.mkdir()
+        r = self.run_tool(config_dir=seat)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(r.stdout, "")
+        self.assertIn(str(seat / "projects" / folder_name(self.home)), r.stderr)
+
+    def test_nothing_in_the_window_is_an_error_not_zeros(self):
+        # kit #72: a folder whose transcripts are all older than the window read as "0 pings,
+        # no rebuilds" with exit 0.
+        stale = (NOW - dt.timedelta(days=3)).timestamp()
+        os.utime(self.transcripts / "session.jsonl", (stale, stale))
+        log = self.root / "cache.tsv"
+        r = self.run_tool("--log", str(log))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(r.stdout, "")
+        self.assertEqual(len(r.stderr.strip().splitlines()), 1, r.stderr)
+        self.assertIn("last 24 h", r.stderr)
+        self.assertFalse(log.exists())
 
     def test_help_writes_nothing(self):
         before = tree(self.root)
