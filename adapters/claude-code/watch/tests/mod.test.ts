@@ -738,6 +738,50 @@ describe('session reports: idle and context marks', () => {
     expect(world.logs).toContain('debug: watch: watch_idle_repeat: true or false, not "yes"')
   })
 
+  test('idle, repeating with a cap (kit #74): at most N reports a stretch, the last says so; a human starts a new count', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: true\nwatch_idle_repeat_max: 3\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await $.prompt.submit(typed('work') as never)
+    for (let i = 0; i < 6; i++) {
+      await clock.advance(50 * MIN)
+      await $.turn.complete({ answer: 'noted', durationMs: 1, isAborted: false, turnId: `t${i}`, reason: 'answer' })
+    }
+    expect(world.submitted).toHaveLength(3)
+    expect(world.submitted[1]).not.toContain('the last')
+    expect(world.submitted[2]).toContain('the last of 3 (watch_idle_repeat_max)')
+    await $.prompt.submit(typed('back again') as never)
+    await clock.advance(50 * MIN)
+    expect(world.submitted).toHaveLength(4)
+    expect(world.submitted[3]).not.toContain('the last')
+  })
+
+  test('watch_idle_repeat_max unreadable is said, and caps nothing', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: true\nwatch_idle_repeat_max: lots\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await $.prompt.submit(typed('work') as never)
+    for (let i = 0; i < 4; i++) {
+      await clock.advance(50 * MIN)
+      await $.turn.complete({ answer: 'noted', durationMs: 1, isAborted: false, turnId: `t${i}`, reason: 'answer' })
+    }
+    expect(world.submitted).toHaveLength(4)
+    expect(world.logs).toContain('debug: watch: watch_idle_repeat_max: not a list of whole numbers >= 1: "lots"')
+  })
+
+  test('watch_idle_repeat_max without watch_idle_repeat: true does nothing, and is said', async ($, on) => {
+    const world = worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat_max: 3\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await $.prompt.submit(typed('work') as never)
+    await clock.advance(50 * MIN)
+    await $.turn.complete({ answer: 'noted', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+    await clock.advance(3 * 60 * MIN)
+    expect(world.submitted).toHaveLength(1)
+    expect(world.submitted[0]).not.toContain('the last')
+    expect(world.logs).toContain('debug: watch: watch_idle_repeat_max does nothing without watch_idle_repeat: true')
+  })
+
   test('not declared: no idle report however long the silence', async ($, on) => {
     const world = worldOf(on, { 'memory-kit.conf': 'memory_dir: memory\n' })
     const clock = mock.clock(on, { now: NOW })
@@ -824,6 +868,15 @@ describe('/watch', () => {
     await clock.advance(0)
     const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
     expect(text).toContain('idle: report at 50 min, repeating; context: off')
+  })
+
+  test('says a capped repeating idle report (kit #74)', async ($, on) => {
+    worldOf(on, { 'memory-kit.conf': 'watch_idle_minutes: 50\nwatch_idle_repeat: true\nwatch_idle_repeat_max: 20\n' })
+    const clock = mock.clock(on, { now: NOW })
+    await $.session.start(SESSION)
+    await clock.advance(0)
+    const { text } = await $.command.run({ command: 'watch', args: '', origin: { kind: 'composer' } } as never)
+    expect(text).toContain('idle: report at 50 min, repeating, at most 20 per idle stretch; context: off')
   })
 
   test('with nothing declared says so', async ($, on) => {

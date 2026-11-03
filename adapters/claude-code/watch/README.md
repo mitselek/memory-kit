@@ -96,6 +96,7 @@ declaring `watch_sources` (watch 0.4.x and older) gets one migration notice: dec
 ```yaml
 watch_idle_minutes: 50
 watch_idle_repeat: true          # optional (kit #47): report again after each further interval
+watch_idle_repeat_max: 20        # optional (kit #74): at most 20 reports per idle stretch
 watch_context_percent: 50, 60, 70, 80
 watch_context_step: "run the checkpoint routine (memory-kit/CONTEXT.md); at 80, retire"   # optional (kit #68)
 ```
@@ -117,6 +118,12 @@ watch_context_step: "run the checkpoint routine (memory-kit/CONTEXT.md); at 80, 
   weekend away about three (a household estimate at the usual cache prices, 19.10.2026). A home
   that retires by its context gauge, not by idleness, should not declare `watch_retire_step`
   with it: every report would quote that step.
+- **Idle, repeating, capped** (`watch_idle_repeat_max: N`, kit #74): at most N reports in one
+  idle stretch; the Nth says it is the last, and a human prompt starts a new count. At the cache
+  prices above, 20 reports cost about one uncached re-read whatever the interval, so a cap of 20
+  bounds what a long absence costs (about twice the one re-read) while every shorter stretch is
+  still kept warm. Without `watch_idle_repeat: true` it does nothing, and the watch says so.
+  When to declare which: `CONTEXT.md`, "Keeping the prompt cache warm".
 - **Context:** percent marks of the window (1-99), against the exact
   `$.session.usage()` reading. Crossing a mark gives one report naming the load and the mark;
   each mark fires once per session; a jump over several names the highest. A compaction that

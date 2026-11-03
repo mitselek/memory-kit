@@ -21,6 +21,7 @@ import {
   confContextPercent,
   confIdleMinutes,
   confIdleRepeat,
+  confIdleRepeatMax,
   confValue,
   contextReport,
   expandHome,
@@ -64,6 +65,8 @@ const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.i
  *  and the report's own turn can never re-arm it. With watch_idle_repeat (kit #47) a report
  *  leaves it armed, so reports recur while the session stays idle; only a human arms it first. */
 let idleArmed = false
+/** Idle reports since the human last armed the watch, for watch_idle_repeat_max (kit #74). */
+let idleReports = 0
 let lastActivity = 0
 /** Set when register() saw a retired option: told once at session start. */
 let retiredOption: string | undefined
@@ -392,6 +395,9 @@ async function reportCheck($: EngineInterface, conf: string): Promise<void> {
   const repeat = confIdleRepeat(conf)
   if (repeat.problem !== undefined) logOnce($, `watch_idle_repeat: ${repeat.problem}`)
   if (repeat.on && !idle.declared) logOnce($, 'watch_idle_repeat: true does nothing without watch_idle_minutes')
+  const repeatMax = confIdleRepeatMax(conf)
+  if (repeatMax.problem !== undefined) logOnce($, `watch_idle_repeat_max: ${repeatMax.problem}`)
+  if (repeatMax.declared && !repeat.on) logOnce($, 'watch_idle_repeat_max does nothing without watch_idle_repeat: true')
   const marks = confContextPercent(conf)
   if (marks.problem !== undefined) logOnce($, `watch_context_percent: ${marks.problem}`)
   if (idle.values.length === 0 && marks.values.length === 0) return
@@ -401,13 +407,16 @@ async function reportCheck($: EngineInterface, conf: string): Promise<void> {
 
   const idleMinutes = idle.values[0]
   if (idleMinutes !== undefined && idleArmed && now - lastActivity >= idleMinutes * MINUTE) {
-    idleArmed = repeat.on
+    idleReports += 1
+    const cap = repeat.on ? repeatMax.values[0] : undefined
+    const last = cap !== undefined && idleReports >= cap
+    idleArmed = repeat.on && !last
     const minutes = Math.round((now - lastActivity) / MINUTE)
     // The next report waits a full interval from this one, even if this one's turn never starts
     // (a refused prompt): a repeating report must not fire at every poll.
     lastActivity = now
-    $.ui.log(`watch: idle report (${minutes} min${repeat.on ? ', repeating' : ''})`, { to: 'debug' })
-    ask($, idleReport(minutes, confValue(conf, 'watch_retire_step'), repeat.on))
+    $.ui.log(`watch: idle report (${minutes} min${repeat.on ? `, repeating${cap !== undefined ? `, ${idleReports} of ${cap}` : ''}` : ''})`, { to: 'debug' })
+    ask($, idleReport(minutes, confValue(conf, 'watch_retire_step'), repeat.on, last ? cap : undefined))
   }
 
   if (marks.values.length > 0 && context.tokens !== undefined) {
@@ -473,7 +482,8 @@ async function status($: EngineInterface, settings: Settings): Promise<string> {
   const idle = confIdleMinutes(conf)
   const marks = confContextPercent(conf)
   const repeat = confIdleRepeat(conf)
-  const again = repeat.problem !== undefined ? ` (watch_idle_repeat unreadable: ${repeat.problem})` : repeat.on ? ', repeating' : ''
+  const max = confIdleRepeatMax(conf).values[0]
+  const again = repeat.problem !== undefined ? ` (watch_idle_repeat unreadable: ${repeat.problem})` : repeat.on ? `, repeating${max !== undefined ? `, at most ${max} per idle stretch` : ''}` : ''
   const idleSay = idle.problem !== undefined ? `unreadable (${idle.problem})` : idle.values[0] !== undefined ? `report at ${idle.values[0]} min${again}` : 'off'
   const markSay = marks.problem !== undefined ? `unreadable (${marks.problem})` : marks.values.length > 0 ? `report at ${marks.values.join(', ')}% of the window` : 'off'
   lines.push(`idle: ${idleSay}; context: ${markSay}; poll every ${settings.pollMs / 1000} s`)
@@ -546,7 +556,10 @@ export const register: Register = (on, options) => {
       await markActivity($)
       // Only the human arms the idle report: the watch's own rings and reports never do,
       // so one working stretch gets one report, not one every idle interval.
-      if (isHuman(e.origin)) idleArmed = true
+      if (isHuman(e.origin)) {
+        idleArmed = true
+        idleReports = 0
+      }
     } catch {
       // The idle clock is not worth a lost prompt.
     }

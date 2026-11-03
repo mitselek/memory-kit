@@ -72,6 +72,11 @@ idle, so a mark shorter than the cache's lifetime keeps it from expiring.
   for an idle stretch under about 16 hours (20 reports at 50 minutes) and cost more over a
   weekend away. Overnight they roughly break even: in the household's 24 h to 2026-11-03 07:30,
   18 reports cost about 1.17M base-input tokens and one cold rebuild of that context about 1.09M.
+- **Cap the repeat** for a session that can sit idle for days: `watch_idle_repeat_max: 20`
+  (kit #74) stops after 20 reports in one idle stretch. A shorter stretch stays warm; a longer
+  one costs at most about twice the one rebuild it would have cost without reports. Three homes
+  measured on 2026-11-03 and found days-long idle stretches (Laidoner: 70 h would have taken
+  about 83 reports, ~1.9M, to save one ~0.45M rebuild).
 
 `adapters/claude-code/tools/cache-report.py` reads the home's transcripts and counts idle
 reports, cold rebuilds and compactions, with the cost at the same assumed rates:
@@ -82,4 +87,6 @@ python3 -I memory-kit/adapters/claude-code/tools/cache-report.py --home ~/home -
 ```
 
 It looks for the folder Claude Code keeps for the folder a session starts in (default: the
-current one), writes nothing without `--log`, and needs only python3.
+current one), under `$CLAUDE_CONFIG_DIR` when the seat sets it, else `~/.claude` (kit #72); it
+names the folder it read, says so when nothing there falls in the window, writes nothing without
+`--log`, and needs only python3.

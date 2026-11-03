@@ -344,6 +344,16 @@ export function confIdleRepeat(conf: string): { on: boolean; problem?: string } 
   return { on: false, problem: `true or false, not "${raw}"` }
 }
 
+/**
+ * `watch_idle_repeat_max: 20` (kit #74): with watch_idle_repeat, at most that many idle reports in
+ * one idle stretch; a human prompt starts the next. At cache read 0.1x and one-hour cache write
+ * 2x, 20 reports cost one rebuild whatever the interval, so the cap bounds what a long absence
+ * costs. Absent: no cap.
+ */
+export function confIdleRepeatMax(conf: string): ConfNumbers {
+  return confNumbers(conf, 'watch_idle_repeat_max', 1)
+}
+
 /** `watch_context_percent: 50, 60, 70, 80` -- percent marks of the window, 1-99, sorted. */
 export function confContextPercent(conf: string): ConfNumbers {
   const read = confNumbers(conf, 'watch_context_percent', Infinity)
@@ -389,8 +399,9 @@ export function contextReport(mark: number, tokens: number, window: number, cont
  * The idle report: information only. A declared watch_retire_step is quoted as the home's own
  * declared step, decided by the home, not by the watch.
  */
-export function idleReport(idleMinutes: number, retireStep: string | undefined, repeat = false): string {
-  const mark = repeat ? 'the watch_idle_minutes mark in memory-kit.conf, repeating while idle (watch_idle_repeat)' : 'the watch_idle_minutes mark in memory-kit.conf'
+export function idleReport(idleMinutes: number, retireStep: string | undefined, repeat = false, lastOf?: number): string {
+  const last = lastOf === undefined ? '' : `; the last of ${lastOf} (watch_idle_repeat_max)`
+  const mark = repeat ? `the watch_idle_minutes mark in memory-kit.conf, repeating while idle (watch_idle_repeat)${last}` : 'the watch_idle_minutes mark in memory-kit.conf'
   const head = `[watch] This session has been idle for ${idleMinutes} min (${mark}).`
   const tail = retireStep === undefined ? 'This is information only; what idleness means here is this home\'s own rule.' : `The home's declared step for this (watch_retire_step): ${retireStep}.`
   return `${head} ${tail}`
