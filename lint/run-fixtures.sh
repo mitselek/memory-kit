@@ -67,7 +67,7 @@ fi
 # Every file read and write in the kit's Python names its encoding (kit #13): with none, Windows
 # uses the locale code page (cp1257 on Estonian Windows) and crashes on the first UTF-8 letter.
 # The watch's spool poller (kit #16) runs on the Windows desks too. Popen is not open.
-bare=$(grep -nE "\.(read_text|write_text)\(|[^A-Za-z_]open\(" "$KIT"/lint/*.py "$KIT"/tools/*.py "$KIT"/adapters/claude-code/watch/spool/*.py "$KIT"/adapters/claude-code/tools/*.py "$KIT"/adapters/claude-code/obligations-pane/tests/fixtures/*.py | grep -v 'encoding="utf-8"' || true)
+bare=$(grep -nE "\.(read_text|write_text)\(|[^A-Za-z_]open\(" "$KIT"/lint/*.py "$KIT"/tools/*.py "$KIT"/adapters/claude-code/watch/spool/*.py "$KIT"/adapters/claude-code/tools/*.py "$KIT"/adapters/claude-code/state-what-is/skills/state-what-is/*.py "$KIT"/adapters/claude-code/obligations-pane/tests/fixtures/*.py | grep -v 'encoding="utf-8"' || true)
 if [ -n "$bare" ]; then
   fail=$((fail+1)); echo "NO ENCODING      file I/O without encoding=\"utf-8\":"; printf '%s\n' "$bare" | sed 's/^/    /'
 else
@@ -96,6 +96,13 @@ if out=$(python3 "$KIT/adapters/claude-code/tools/cache-report-test.py" 2>&1); t
   pass=$((pass+1))
 else
   fail=$((fail+1)); echo "CACHE REPORT     adapters/claude-code/tools/cache-report-test.py:"; printf '%s\n' "$out" | tail -n 15 | sed 's/^/    /'
+fi
+
+# The state-what-is scanner (kit #73): its categories on small files, and the kit's command line.
+if out=$(python3 "$KIT/adapters/claude-code/state-what-is/tests/scan-test.py" 2>&1); then
+  pass=$((pass+1))
+else
+  fail=$((fail+1)); echo "SCANNER FAIL     adapters/claude-code/state-what-is/tests/scan-test.py:"; printf '%s\n' "$out" | tail -n 15 | sed 's/^/    /'
 fi
 
 # The caps the skeleton READMEs state are the caps in caps.yaml (kit #65).

@@ -1,12 +1,14 @@
 # memory-kit plugins for Claude Code
 
-This folder is the `memory-kit` marketplace. It holds three plugins, each with its own README:
+This folder is the `memory-kit` marketplace. It holds four plugins, each with its own README:
 
 - [`obligations-pane`](obligations-pane/README.md): a read-only side pane over the obligations tier.
 - [`watch`](watch/README.md): rings a doorbell when a file the home declares grows, and reports
   idleness and context growth, information only.
 - [`kit-update`](kit-update/README.md): prompts the session when a kit release is out on the home's
   channel.
+- [`state-what-is`](state-what-is/README.md): a skill and scanner that find text narrating how a
+  document changed, and propose rewrites that state what is (kit #73, by framework-research).
 
 Beside them, not a plugin: `tools/cache-report.py`, a prompt-cache report from the home's
 transcripts (kit #70; see `CONTEXT.md`, "Keeping the prompt cache warm").
@@ -67,6 +69,8 @@ each plugin does there, as each plugin's tests hold it (`claude plugin test .`, 
   line, no process. It still registers `/watch` and reads the start folder's `memory-kit.conf`
   every poll (5 s). `/watch` says "no watch_files in `<path>`; no doorbells." and that both
   session sensors are off.
+- **state-what-is: the same as inside.** It has no hooks and reads no conf: the skill's
+  description is in every session's list of skills, and the skill loads only when used.
 
 **User-scope options end the silence.** They reach every session, so set them in a home's own
 sessions only, or not at all:

@@ -3,7 +3,7 @@
   "owner": {
     "name": "memory-kit (mitselek)"
   },
-  "description": "Claude Code tools that travel with memory-kit: the read-only obligations pane, the watch, and kit-update.",
+  "description": "Claude Code tools that travel with memory-kit: the read-only obligations pane, the watch, kit-update and the state-what-is skill.",
   "plugins": [
     {
       "name": "obligations-pane",
@@ -19,6 +19,11 @@
       "name": "kit-update",
       "source": "./kit-update",
       "description": "Checks for memory-kit releases on the home's channel every N minutes and prompts the session once per release; never runs git."
+    },
+    {
+      "name": "state-what-is",
+      "source": "./state-what-is",
+      "description": "A skill and scanner that find text narrating how a document changed, and propose rewrites that state what is. English and Estonian."
     }
   ]
 }

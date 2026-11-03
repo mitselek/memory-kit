@@ -1,0 +1,8 @@
+{
+  "name": "state-what-is",
+  "version": "0.1.0",
+  "description": "memory-kit state-what-is: a skill and a stdlib scanner that find text narrating how a document changed, references the reader cannot follow, and rules kept alive for a dropped idea, and propose rewrites that state the current design. English and Estonian. By framework-research.",
+  "author": {
+    "name": "framework-research (Aen), for memory-kit"
+  }
+}

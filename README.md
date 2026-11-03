@@ -261,7 +261,7 @@ fixtures/          valid/ and invalid/ samples per tier -- the contract
 lint/              reference lint (python3 + PyYAML), --gate | --report; run-fixtures.sh
 skeleton/          the empty home a fresh consumer starts from (secrets README included)
 adapters/          harness-bound tools: adapters/claude-code/ obligations-pane, watch (+ spool/spool-poll.py), kit-update,
-                   tools/cache-report.py; its README.md says what a user-scope install does outside a kit home
+                   state-what-is, tools/cache-report.py; its README.md says what a user-scope install does outside a kit home
 GOVERNANCE.md
 VERSION            pinned by consumers
 CHANGELOG.md
