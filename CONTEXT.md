@@ -42,6 +42,10 @@ the mechanism, it must not take the operator's terminal down with the session.
 - **Claude Code:** the watch plugin reads that figure exactly from the session and reports once
   per mark (`watch_context_percent`). With `watch_context_step` the report quotes the home's own
   step, so the ring says what to do. See `adapters/claude-code/watch/README.md`.
+- **Claude Code compaction off:** with `watch_context_percent` declared, set
+  `autoCompactEnabled: false` and `idleCompaction: false` in the seat's settings; a harness
+  compaction would replace the context the routine manages. See `adapters/claude-code/README.md`,
+  "Compaction".
 - **Other harnesses:** any gauge that reads the same figure will do. The routine itself is
   harness-free.
 

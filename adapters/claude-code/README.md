@@ -13,33 +13,43 @@ This folder is the `memory-kit` marketplace. It holds four plugins, each with it
 Beside them, not a plugin: `tools/cache-report.py`, a prompt-cache report from the home's
 transcripts (kit #70; see `CONTEXT.md`, "Keeping the prompt cache warm").
 
-## Idle compaction: turn it off in a home that retires instead (Claude Code 2.1.290+)
+## Compaction: turn it off in a home that retires instead
 
-Claude Code compacts a conversation over 200k tokens while the session is idle, before its
-one-hour prompt cache expires: at about 54 idle minutes (90% of the hour), whatever the window.
-A compaction replaces the conversation with a summary, and the session afterwards works from that
-summary: what it had read and checked becomes something it infers. A home whose rule is to
-checkpoint into its memory files and retire by its context gauge, never to compact, loses exactly
-that. The household saw it twice (18.10 and 19.10.2026, at 256k and 239k tokens, the gauge at
-23% of a 1M window): both came after 55 minutes idle, not from a full window.
+A home that declares `watch_context_percent` checkpoints into its memory files and retires by
+its context marks (`CONTEXT.md`); it never compacts. Claude Code compacts in two ways, and both
+undercut that routine: a compaction replaces the conversation with a summary, and the session
+afterwards works from that summary: what it had read and checked becomes something it infers.
 
-Turn it off in the user's settings, `~/.claude/settings.json`:
+- **Auto-compaction** when the context nears the window's limit.
+- **Idle compaction** (Claude Code 2.1.290+) of a conversation over 200k tokens that has sat idle
+  for about an hour, before its one-hour prompt cache expires: at about 54 idle minutes, whatever
+  the window. The household saw it twice (18.10 and 19.10.2026, at 256k and 239k tokens, the gauge
+  at 23% of a 1M window): both came after 55 minutes idle, not from a full window.
+
+With `watch_context_percent` declared, turn both off in the settings of the seat that runs the
+home, e.g. `~/.claude/settings.json`:
 
 ```json
 {
+  "autoCompactEnabled": false,
   "idleCompaction": false
 }
 ```
 
-- The key and its meaning are Claude Code's own (2.1.303's settings schema: "Set to false to stop
-  Claude Code from compacting a long conversation while the session is idle"). `true` does not
-  turn it on; leave the key out for the default.
-- **User scope applies to every session on the machine**, every home included. `[unverified]`:
-  whether a project's `.claude/settings.json` is read for this key (plugin options, for one, are
-  read from user settings only).
-- `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` moves the 200k minimum instead of turning it off.
-- Compaction at a full window stays on (`autoCompactEnabled`); a home retiring at its gauge's
-  mark (the household: 80%) stays below it.
+- The keys and their meaning are Claude Code's own
+  ([settings reference](https://code.claude.com/docs/en/settings-reference), `autoCompactEnabled`,
+  `idleCompaction`): both are booleans, default `true`. `autoCompactEnabled: false` turns idle
+  compaction off too; `idleCompaction: false` says so explicitly, and alone it stops only idle
+  compaction. `/compact` keeps working.
+- **Scope:** both are "Any file" keys: user, project or local settings. User scope applies to every
+  session on the machine, every home included; a project's `.claude/settings.json` applies to
+  that project only.
+- `DISABLE_AUTO_COMPACT=1` (env) does the same for one session; set either way, the other cannot
+  turn it back on. `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` moves idle compaction's 200k minimum
+  instead of turning it off.
+- **The retire mark is the only stop.** With auto-compaction off, nothing frees the window: a
+  session that misses its retire mark (the household: 80%) stops at the context limit. The PO
+  accepted this on 2026-11-10: the stop is the price of never working from a summary.
 - With idle compaction off, the first turn after an hour idle reads the whole context uncached.
   The watch's repeating idle report (`watch_idle_repeat: true`, kit #47) keeps the cache warm
   instead; see the watch README.
